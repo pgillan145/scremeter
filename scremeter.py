@@ -15,9 +15,9 @@ sample_format = pyaudio.paInt24  # 24 bits per sample
 device_match_string = 'C-Media USB'
 channels = 1
 frequency = 44100  # Record at 44100 samples per second
-pre_buffer = 10
+pre_buffer = 5
 post_buffer = 5
-filename = "scremus"
+filename = "/home/pgillan/Documents/scremus/scremus-"
 stop_recording = False
 
 def main():
