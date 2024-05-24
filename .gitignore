@@ -1,0 +1,12 @@
+.DS_Store
+cache/*
+log/*
+test/*
+dist/*
+*.egg-info
+*.log
+*.pyc
+__pycache__
+.*.swp
+*.wav
+
