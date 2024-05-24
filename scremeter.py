@@ -10,7 +10,7 @@ import time
 from threading import Thread, Event
 import wave
 
-chunk = 256  # Record in chunks of 1024 samples
+chunk = 256  # How large each chunk of data we record will be. Larger values seem to come out crackly.
 sample_format = pyaudio.paInt24  # 24 bits per sample
 device_match_string = 'C-Media USB'
 channels = 1
@@ -18,7 +18,6 @@ frequency = 44100  # Record at 44100 samples per second
 pre_buffer = 10
 post_buffer = 5
 filename = "scremus"
-trigger_file = scremeter.trigger_file()
 stop_recording = False
 
 def main():
@@ -110,6 +109,9 @@ def record(p, frames, event):
     print('Recording: stopped')
 
 def trigger():
+    """Return a time if a recording trigger is detected. For now, this just look for a certain file defined in the 'scremeter' library to appear."""
+
+    trigger_file = scremeter.trigger_file()
     if (os.path.exists(trigger_file)):
         os.remove(trigger_file)
         return datetime.now()
