@@ -15,9 +15,9 @@ sample_format = pyaudio.paInt24  # 24 bits per sample
 device_match_string = 'C-Media USB'
 channels = 1
 frequency = 44100  # Record at 44100 samples per second
-pre_buffer = 5
-post_buffer = 5
-filename = "/home/pgillan/Documents/scremus/scremus-"
+pre_buffer = scremeter.pre_buffer()
+post_buffer = scremeter.post_buffer()
+filename = scremeter.raw_dir() + "/scremus-"
 stop_recording = False
 
 def main():
@@ -34,10 +34,16 @@ def main():
 
     buffer_frames = []
     trigger_time = None
+
+    # delete the trigger file, if there's still an old one hanging around
+    trigger_file = scremeter.trigger_file()
+    if (os.path.exists(trigger_file)):
+        os.remove(trigger_file)
+
     while (event.is_set() is False):
         try:
             # just run once a second
-            time.sleep(1)
+            time.sleep(.5)
 
             t = trigger()
             if (t is not None):
