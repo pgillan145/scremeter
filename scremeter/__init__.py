@@ -1,9 +1,47 @@
 
+import atexit
+import minorimpact
 import minorimpact.config
 
 __VERSION__ = '0.0.1'
 
-config = minorimpact.config.getConfig(script_name = 'scremeter')
+def archive_dir():
+    if ('archive_dir' in config['default']):
+        return config['default']['archive_dir']
+    return None
+
+def cache_file():
+    if ('cache_file' in config['default']):
+        return config['default']['cache_file']
+    return None
+
+def cacheWrite():
+    global cache
+    minorimpact.write_cache(cache_file(), cache)
+
+def flagged_dir():
+    if ('flagged_dir' in config['default']):
+        return config['default']['flagged_dir']
+    return None
+
+def get_cache(clear_cache = False):
+    global cache
+
+    if (clear_cache is True):
+        cache = { 'files': {} }
+        minorimpact.write_cache(cache_file(), cache)
+        return cache
+
+    if (cache is None):
+        cache = minorimpact.read_cache(cache_file())
+
+    #print(cache_file())
+    #from dumper import dump
+    #dump(cache)
+    if ('files' not in cache):
+        cache['files'] = {}
+
+    return cache
 
 def mp3_dir():
     if ('mp3_dir' in config['default']):
@@ -27,4 +65,8 @@ def raw_dir():
 def trigger_file():
     return config['default']['trigger_file']
 
+config = minorimpact.config.getConfig(script_name = 'scremeter')
+cache = None
+    
+atexit.register(cacheWrite)
 
