@@ -3,3 +3,4 @@
 minorimpact
 noisereduce
 pyaudio
+resampy

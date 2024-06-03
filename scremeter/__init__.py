@@ -10,6 +10,11 @@ def archive_dir():
         return config['default']['archive_dir']
     return None
 
+def beep():
+    if ('beep' in config['default']):
+        return config['default']['beep']
+    return None
+
 def cache_file():
     if ('cache_file' in config['default']):
         return config['default']['cache_file']
@@ -35,6 +40,8 @@ def get_cache(clear_cache = False):
     if (cache is None):
         cache = minorimpact.read_cache(cache_file())
 
+    if (cache is None):
+        cache = { 'files': {} }
     #print(cache_file())
     #from dumper import dump
     #dump(cache)

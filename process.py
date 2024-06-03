@@ -9,6 +9,7 @@ import numpy
 import os
 import os.path
 import re
+import resampy
 from scipy.io import wavfile
 import scipy.signal
 import scremeter
@@ -27,7 +28,6 @@ prop_decrease = .85
 
 def consolidate(date_hour):
     print(f"CONS {date_hour}")
-    anchor_rate = None
     
     consolidate = []
     consolidated_header = 'consolidated'
@@ -61,9 +61,19 @@ def consolidate(date_hour):
 
     wav_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.wav'
     mp3_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp3'
+
+    anchor_rate, d = wavfile.read(consolidate[0])
+    beep = scremeter.beep()
+    if (beep is not None):
+        beep_rate, beep_data = wavfile.read(beep)
+
     consolidated_data = None
+    i = 0
     for file in consolidate:
         reduced_file = reduced_filename(file)
+        if (os.path.exists(reduced_file) is False):
+            raise Exception(f"{reduced_file} doesn't exist")
+
         #print(file)
         #print(reduced_file)
         rate, data = wavfile.read(reduced_file)
@@ -76,6 +86,10 @@ def consolidate(date_hour):
             consolidated_data = data
         else:
             consolidated_data = numpy.append(consolidated_data, data)
+        i = i + 1
+        if (i < len(consolidate) and beep is not None):
+            consolidated_data = numpy.append(consolidated_data, beep_data)
+
             
     wavfile.write(wav_file, anchor_rate, consolidated_data)
     if (os.path.exists(mp3_file)):
@@ -86,14 +100,12 @@ def consolidate(date_hour):
     for file in consolidate:
         basename = os.path.basename(file)
         archive_file = archive_dir + '/' + basename
-        #print(f"move {file} to {archive_file}")
-        shutil.move(file, archive_file)
-
         reduced_file = reduced_filename(file)
-        #print(f"delete {reduced_file}")
+
+        # moved the raw files we used into the archive directory and remove the "reduced" files
+        shutil.move(file, archive_file)
         delete(reduced_file)
-    #    delete reduced files
-    #    move from raw into archive
+        del(cache['files'][file])
 
 def delete(file):
     #print(f"deleting {file}")
@@ -120,40 +132,34 @@ def main():
     # load data
     wav_files = sorted(minorimpact.readdir(raw_dir))
 
-    files = list(cache['files'].keys())
-    for file in files:
+    # Clear invalid entries from the cache
+    cache_files = list(cache['files'].keys())
+    for file in cache_files:
         if (file not in wav_files):
             del(cache['files'][file])
 
+
     date_hour_log = {}
+    # collect the number of files for each hour so we know when to 
+    for file in wav_files:
+        parsed = parse_filename(file)
+
+        date_hour = parsed['year'] + parsed['month'] + parsed['day'] + parsed['hour']
+        if (date_hour not in date_hour_log):
+            date_hour_log[date_hour] = 0
+
+        #print(date_hour)
+        date_hour_log[date_hour] = date_hour_log[date_hour] + 1
+
+    #for dh in date_hour_log.keys():
+    #    print(f"{dh}: {date_hour_log[dh]}")
+        
     flagged_dir = scremeter.flagged_dir()
-    last_date_hour = None
     for file in wav_files:
         status = None
         basename = os.path.basename(file)
-        m = re.search("^(.+)-(\d\d\d\d-\d\d-\d\d-\d\d_\d\d_\d\d)", basename)
-        if (m is not None):
-            header = m[1]
-            date = m[2]
-            m2 = re.search("(\d\d\d\d-\d\d-\d\d-\d\d)_\d\d_\d\d", date)
-            if (m2 is not None):
-                date_hour = re.sub("-","", m2[1])
-                if (date_hour != last_date_hour and last_date_hour is not None):
-                    if (date_hour_log[last_date_hour] == 0):
-                        # if everything in a given hour is "keep", then we want to:
-                        #   combine all the files into an mp3
-                        #   move the raw files into "archive"
-                        #   delete the "reduced" files.
-                        consolidate(last_date_hour)
-                last_date_hour = date_hour
-
-                if (date_hour not in date_hour_log):
-                    date_hour_log[date_hour] = 0
-                date_hour_log[date_hour] = date_hour_log[date_hour] + 1
-                #print(f"date_hour_log[{date_hour}] = {date_hour_log[date_hour]}")
-        else:
-            print("invalid filename: {basename}")
-            continue
+        parsed = parse_filename(file)
+        date_hour = parsed['year'] + parsed['month'] + parsed['day'] + parsed['hour']
 
         md5 = minorimpact.md5dir(file)
         #reduced_basename = f"{header}-{date}-reduced.wav"
@@ -189,9 +195,11 @@ def main():
                     delete(reduced_file)
                     del(cache['files'][file])
 
+        # If the user just wanted to look at flagged files, we're done with that, go on to the next item
         if (args.edits is True): continue
         if (args.flagged is True): continue
 
+        # clean up the raw file, if it hasn't been already
         if (os.path.exists(reduced_file) is False or args.reprocess is True):
             print(f"processing {basename}")
             rate, data = wavfile.read(file)
@@ -231,12 +239,13 @@ def main():
             print(f"  writing {reduced_file}")
             wavfile.write(reduced_file, rate, reduced_noise)
 
-        #play(reduced_file)
+        # let the user decide what to do with this file
         while(True and status != 'keep'):
+            print(f"unkept files in this block:{date_hour_log[date_hour]}")
             print(f"{basename}:")
             c = minorimpact.getChar(default='', end='\n', prompt="command? ", echo=True).lower()
             if (c == 'd'):
-                c = minorimpact.getChar(default='', end='\n', prompt="again ", echo=True).lower()
+                c = minorimpact.getChar(default='', end='\n', prompt="again, please ", echo=True).lower()
                 if (c == 'd'):
                     delete(file)
                     delete(reduced_file)
@@ -246,27 +255,44 @@ def main():
                 delete(reduced_file)
                 break
             elif (c == 'f'):
-                cache['files'][file] = { 'status':'keep', 'flagged':True }
+                # This one is special, we want to flag it for future consideration
                 flagged_file = flagged_dir + '/' + basename
                 if (os.path.exists(flagged_file) is False):
                     shutil.copyfile(file, flagged_file)
+
+                cache['files'][file] = { 'status':'keep', 'flagged':True }
+                status = 'keep'
+                date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                 break
             elif (c == 'k'):
                 cache['files'][file] = { 'status':'keep', 'flagged':False }
                 status = 'keep'
                 date_hour_log[date_hour] = date_hour_log[date_hour] - 1
-                #print(f"date_hour_log[{date_hour}] = {date_hour_log[date_hour]}")
                 break
             elif (c == 'p' or c == ' '):
                 play(reduced_file)
             elif (c=='q'):
                 sys.exit()
 
-        if (args.one):
-            break
+        # once every file for this hour has been marked 'keep', consolidate the hour
+        if (date_hour_log[date_hour] == 0):
+            consolidate(date_hour)
 
     minorimpact.write_cache(scremeter.cache_file(), cache)
 
+def parse_filename(file):
+    basename = os.path.basename(file)
+    m = re.search("^(.+)-(\d\d\d\d)-(\d\d)-(\d\d)-(\d\d)_(\d\d)_(\d\d)", basename)
+    if (m is not None):
+        header = m[1]
+        year = m[2]
+        month = m[3]
+        day = m[4]
+        hour = m[5]
+        minute = m[6]
+        second = m[7]
+        return { 'header':header, 'year':year, 'month':month, 'day':day, 'hour':hour, 'minute':minute, 'second':second }
+    raise Exception(f"invalid filename: {basename}")
 
 def play(file, play_command = 'aplay'):
     if (file is None):
