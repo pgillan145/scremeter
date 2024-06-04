@@ -22,8 +22,11 @@ def cache_file():
         return config['default']['cache_file']
     return None
 
-def cacheWrite():
+def writeCache():
     global cache
+
+    if (use_cache is False): return
+
     c_file = cache_file()
     if (c_file is not None):
         print(f"writing {c_file}")
@@ -88,6 +91,11 @@ def title():
 def trigger_file():
     return config['default']['trigger_file']
 
+def turnWriteCacheOff():
+    global use_cache
+    print("OFF")
+    use_cache = False
+
 def wav_dir():
     if ('wav_dir' not in config['default']):
         raise Exception('wav_dir is not defined')
@@ -98,6 +106,7 @@ def wav_dir():
 
 config = minorimpact.config.getConfig(script_name = 'scremeter')
 cache = None
+use_cache = True
     
-atexit.register(cacheWrite)
+atexit.register(writeCache)
 

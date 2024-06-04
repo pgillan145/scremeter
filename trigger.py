@@ -6,6 +6,7 @@ import scremeter
 import sys
 
 trigger_file = scremeter.trigger_file()
+scremeter.turnWriteCacheOff()
 
 def main():
     parser = argparse.ArgumentParser(description = 'scremeter trigger')

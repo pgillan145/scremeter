@@ -20,6 +20,8 @@ post_buffer = scremeter.post_buffer()
 filename = scremeter.raw_dir() + '/' + scremeter.title() + "-"
 stop_recording = False
 
+scremeter.turnWriteCacheOff()
+
 def main():
     p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
