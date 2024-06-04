@@ -20,6 +20,8 @@ import sys
 archive_dir = scremeter.archive_dir()
 flagged_dir = scremeter.flagged_dir()
 mp3_dir = scremeter.mp3_dir()
+mp4_dir = scremeter.mp4_dir()
+wav_dir = scremeter.wav_dir()
 processed_dir = scremeter.processed_dir()
 raw_dir = scremeter.raw_dir()
 
@@ -62,8 +64,23 @@ def consolidate(date_hour):
     if (len(consolidate) == 0):
         return
 
-    wav_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.wav'
-    mp3_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp3'
+    wav_file = wav_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.wav'
+    mp3_file = None
+    mp4_file = None
+    mp4_title = consolidated_header
+
+    if (mp3_dir is not None):
+        mp3_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp3'
+
+    if (mp4_dir is not None):
+        mp4_file = mp4_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp4'
+        t = date + start + ' to ' + date + end
+        t = re.sub('(\d\d\d\d)-(\d\d)-(\d\d)-','\g<1>\\/\g<2>\\/\g<3> ', t)
+        t = re.sub('_', '\\\\\\:',t)
+
+        mp4_title = mp4_title + '\n' + t + '\n' + str(len(consolidate)) + ' event'
+        print(mp4_title)
+        if (len(consolidate) > 1): mp4_title = mp4_title + 's'
 
     anchor_rate, d = wavfile.read(consolidate[0])
     beep = scremeter.beep()
@@ -95,11 +112,24 @@ def consolidate(date_hour):
 
             
     wavfile.write(wav_file, anchor_rate, consolidated_data)
-    if (os.path.exists(mp3_file)):
-        delete(mp3_file)
-    command = ['ffmpeg', '-i', wav_file, mp3_file]
-    subprocess.run(command)
-    delete(wav_file)
+
+    if (mp3_file is not None):
+        print(f"generating {mp3_file}")
+        if (os.path.exists(mp3_file)):
+            delete(mp3_file)
+        command = ['ffmpeg', '-i', wav_file, mp3_file]
+        subprocess.run(command)
+
+    if (mp4_file is not None):
+        print(f"generating {mp4_file}")
+        if (os.path.exists(mp4_file)):
+            delete(mp4_file)
+        base = os.path.basename(mp4_file)
+        if (mp4_title is None):
+            mp4_title = base
+        command = ['ffmpeg', '-f', 'lavfi', '-i', 'color=c=blue:s=1280x720', '-i', wav_file, '-vf', f'drawtext=fontfile=/path/to/font.ttf:text={mp4_title}:fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2', '-shortest', '-fflags', '+shortest', mp4_file]
+        subprocess.run(command)
+
     for file in consolidate:
         basename = os.path.basename(file)
         archive_file = archive_dir + '/' + basename
