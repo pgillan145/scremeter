@@ -1,5 +1,6 @@
 
 import atexit
+from dumper import dump
 import minorimpact
 import minorimpact.config
 
@@ -22,7 +23,11 @@ def cache_file():
 
 def cacheWrite():
     global cache
-    minorimpact.write_cache(cache_file(), cache)
+    c_file = cache_file()
+    if (c_file is not None):
+        print(f"writing {c_file}")
+        #dump(cache)
+        minorimpact.write_cache(c_file, cache)
 
 def flagged_dir():
     if ('flagged_dir' in config['default']):

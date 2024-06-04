@@ -59,6 +59,9 @@ def consolidate(date_hour):
             end = minute
             consolidate.append(file)
 
+    if (len(consolidate) == 0):
+        return
+
     wav_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.wav'
     mp3_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp3'
 
@@ -153,6 +156,7 @@ def main():
 
     #for dh in date_hour_log.keys():
     #    print(f"{dh}: {date_hour_log[dh]}")
+    #dump(cache)
         
     flagged_dir = scremeter.flagged_dir()
     for file in wav_files:
@@ -179,15 +183,18 @@ def main():
                     print(f"{basename}")
                     continue
             if(status == 'keep'): 
-                date_hour_log[date_hour] = date_hour_log[date_hour] - 1
+                if (os.path.exists(reduced_file) is False):
+                    status = None
+                    del(cache['files'][file])
+                else:
+                    date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                 #print(f"date_hour_log[{date_hour}] = {date_hour_log[date_hour]}")
                 #print(f"{basename}")
                 #print(f"  status:{status}, flagged:{flagged}")
                 #continue
             elif (status == 'edit'):
                 if (md5 == cache['files'][file]['md5']):
-                    if (args.edits is True):
-                        print(f"{basename}")
+                    print(f"{basename} still needs to be edited")
                     continue
                 elif ( md5 != cache['files'][file]['md5']):
                     #print(f"{basename}")
@@ -239,16 +246,18 @@ def main():
             print(f"  writing {reduced_file}")
             wavfile.write(reduced_file, rate, reduced_noise)
 
+
         # let the user decide what to do with this file
         while(True and status != 'keep'):
             print(f"unkept files in this block:{date_hour_log[date_hour]}")
-            print(f"{basename}:")
+            print(f"{basename} (status:'{status}'):")
             c = minorimpact.getChar(default='', end='\n', prompt="command? ", echo=True).lower()
             if (c == 'd'):
                 c = minorimpact.getChar(default='', end='\n', prompt="again, please ", echo=True).lower()
                 if (c == 'd'):
                     delete(file)
                     delete(reduced_file)
+                    date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                     break
             elif (c == 'e'):
                 cache['files'][file] = { 'status':'edit', 'flagged':False, 'md5':md5 }
