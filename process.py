@@ -28,9 +28,16 @@ raw_dir = scremeter.raw_dir()
 cache = {}
 prop_decrease = .85
 
+
+def audio_length(file):
+    rate, data = wavfile.read(file)
+
+    seconds = data.shape[0]/rate
+    return seconds
+
 def consolidate(date_hour):
     print(f"CONS {date_hour}")
-    
+
     consolidate = []
     consolidated_header = 'consolidated'
     start = None
@@ -110,7 +117,7 @@ def consolidate(date_hour):
         if (i < len(consolidate) and beep is not None):
             consolidated_data = numpy.append(consolidated_data, beep_data)
 
-            
+
     wavfile.write(wav_file, anchor_rate, consolidated_data)
 
     if (mp3_file is not None):
@@ -173,7 +180,7 @@ def main():
 
 
     date_hour_log = {}
-    # collect the number of files for each hour so we know when to 
+    # collect the number of files for each hour so we know when we're done and can start to process them.
     for file in wav_files:
         parsed = parse_filename(file)
 
@@ -187,7 +194,7 @@ def main():
     #for dh in date_hour_log.keys():
     #    print(f"{dh}: {date_hour_log[dh]}")
     #dump(cache)
-        
+
     flagged_dir = scremeter.flagged_dir()
     for file in wav_files:
         status = None
@@ -212,7 +219,7 @@ def main():
                 if (args.flagged is True):
                     print(f"{basename}")
                     continue
-            if(status == 'keep'): 
+            if(status == 'keep'):
                 if (os.path.exists(reduced_file) is False):
                     status = None
                     del(cache['files'][file])
@@ -238,51 +245,106 @@ def main():
 
         # clean up the raw file, if it hasn't been already
         if (os.path.exists(reduced_file) is False or args.reprocess is True):
-            print(f"processing {basename}")
-            rate, data = wavfile.read(file)
+            #print(f"processing {basename}")
+            #rate, data = wavfile.read(file)
 
-            seconds = data.shape[0]/rate
-            print(f"  length: {seconds} seconds")
+            #seconds = data.shape[0]/rate
+            #print(f"  length: {seconds} seconds")
 
-            #data2 = copy.deepcopy(data)
-            #data2 = data[0:(rate*2)]
-            # Use the last 3 seconds as room tone
-            data2 = data[-(rate*3):]
+            ##data2 = copy.deepcopy(data)
+            ##data2 = data[0:(rate*2)]
+            ## Use the last 3 seconds as room tone
+            #data2 = data[-(rate*3):]
 
-            # perform noise reduction
-            reduced_noise = nr.reduce_noise(y=data, y_noise=data2, sr=rate, prop_decrease=prop_decrease, stationary=True)
+            ## perform noise reduction
+            #reduced_noise = nr.reduce_noise(y=data, y_noise=data2, sr=rate, prop_decrease=prop_decrease, stationary=True)
 
-            # try to find the places in the file where shit's the loudest
-            peaks, unknown = scipy.signal.find_peaks(reduced_noise, distance=rate/2, height=260000000)
-            #print(f"  peaks:{len(peaks)}")
-            #if (len(peaks) < 10):
-            #    dump(scipy.signal.peak_prominences(reduced_noise, peaks))
-            #    for p in peaks:
-            #        print(f"  {p/rate}")
+            ## try to find the places in the file where shit's the loudest
+            #peaks, unknown = scipy.signal.find_peaks(reduced_noise, distance=rate/2, height=260000000)
+            ##print(f"  peaks:{len(peaks)}")
+            ##if (len(peaks) < 10):
+            ##    dump(scipy.signal.peak_prominences(reduced_noise, peaks))
+            ##    for p in peaks:
+            ##        print(f"  {p/rate}")
 
-            # number of seconds to keep before and after the first/last peaks
-            peak_padding = 1
+            ## number of seconds to keep before and after the first/last peaks
+            #peak_padding = 1
 
-            trim_start = 0
-            trim_end = len(reduced_noise)
-            if (peaks[0] > rate*peak_padding):
-                trim_start = peaks[0] - (rate*peak_padding)
-            if (peaks[-1] < len(reduced_noise) - (rate*peak_padding)):
-                trim_end = peaks[-1] + (rate*peak_padding)
+            #trim_start = 0
+            #trim_end = len(reduced_noise)
+            #if (peaks[0] > rate*peak_padding):
+            #    trim_start = peaks[0] - (rate*peak_padding)
+            #if (peaks[-1] < len(reduced_noise) - (rate*peak_padding)):
+            #    trim_end = peaks[-1] + (rate*peak_padding)
 
-            print(f"  cropping from {trim_start/rate} to {trim_end/rate}")
-            reduced_noise = reduced_noise[trim_start:trim_end]
+            #print(f"  cropping from {trim_start/rate} to {trim_end/rate}")
+            #reduced_noise = reduced_noise[trim_start:trim_end]
 
-            print(f"  writing {reduced_file}")
-            wavfile.write(reduced_file, rate, reduced_noise)
-
+            #print(f"  writing {reduced_file}")
+            #wavfile.write(reduced_file, rate, reduced_noise)
+            process_file(file)
 
         # let the user decide what to do with this file
         while(True and status != 'keep'):
             print(f"unkept files in this block:{date_hour_log[date_hour]}")
             print(f"{basename} (status:'{status}'):")
             c = minorimpact.getChar(default='', end='\n', prompt="command? ", echo=True).lower()
-            if (c == 'd'):
+            if (c == 'c'):
+                crop_mode = 'raw'
+                crop_start = scremeter.pre_buffer() - 1
+                crop_end = 0
+                peak_start_override = 0
+                peak_end_override = 0
+                process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
+                crop_side = 'start'
+                while(True):
+                    c = minorimpact.getChar(default='', end='\n', prompt=f"  crop command (mode:{crop_mode}, side:{crop_side})? ", echo=True).lower()
+                    if (c == 'm'):
+                        if (crop_mode == 'raw'): crop_mode = 'peak'
+                        elif (crop_mode == 'peak'): crop_mode = 'raw'
+                    elif (c == 'p'):
+                        crop_mode = 'peak'
+                    elif (c == 'q' or c == 'k'):
+                        break
+                    elif (c == 'r'):
+                        crop_mode = 'raw'
+                    elif (c == 'x' or c == 'e'):
+                        crop_side = 'end'
+                    elif (c == 'z' or c == 's'):
+                        crop_side = 'start'
+                    elif (c == ' '):
+                        play(reduced_file)
+                    elif (c == '-'):
+                        if (crop_mode == 'peak'):
+                            if (crop_side == 'start'):
+                                peak_start_override -= .5
+                            elif (crop_side == 'end'):
+                                peak_end_override -= .5
+                        elif (crop_mode == 'raw'):
+                            peak_start_override = 0
+                            peak_end_override = 0
+                            if (crop_side == 'start'):
+                                crop_start -= 1
+                            elif (crop_side == 'end'):
+                                crop_end += 1
+
+                        process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
+                    elif (c == '+' or c == '='):
+                        if (crop_mode == 'peak'):
+                            if (crop_side == 'start'):
+                                peak_start_override += .5
+                            elif (crop_side == 'end'):
+                                peak_end_override += .5
+                        elif (crop_mode == 'raw'):
+                            peak_start_override = 0
+                            peak_end_override = 0
+                            if (crop_side == 'start'):
+                                crop_start += 1
+                            elif (crop_side == 'end'):
+                                crop_end -= 1
+
+                        process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
+            elif (c == 'd'):
                 c = minorimpact.getChar(default='', end='\n', prompt="again, please ", echo=True).lower()
                 if (c == 'd'):
                     delete(file)
@@ -308,7 +370,7 @@ def main():
                 status = 'keep'
                 date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                 break
-            elif (c == 'p' or c == ' '):
+            elif (c == ' '):
                 play(reduced_file)
             elif (c=='q'):
                 sys.exit()
@@ -338,6 +400,76 @@ def play(file, play_command = 'aplay'):
         return
     command = [play_command,file]
     subprocess.run(command)
+
+def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True, peak_start_override = 0, peak_end_override = 0, crop_start = scremeter.pre_buffer() - 1, crop_end = 0):
+    basename = os.path.basename(file)
+
+    print(f"processing {basename}")
+    rate, data = wavfile.read(file)
+    print(f"  original length: {data.shape[0]/rate:.2f} seconds")
+
+    trim_start = 0
+    trim_end = len(data)
+    if (crop_start > 0):
+        trim_start = int(crop_start * rate)
+
+    if (crop_end > 0):
+        trim_end = len(data) - int(crop_end * rate)
+
+    if (trim_start > trim_end):
+        raise Exception(f"Invalid raw crop range {trim_start} to {trim_end}")
+
+    if (trim_start > 0 or trim_end < len(data)):
+        print(f"  cropping initial file: 0(+{crop_start}) = {int(trim_start/rate)} to {int(len(data)/rate)}(-{crop_end}) = {int(trim_end/rate)}")
+
+    data = data[trim_start:trim_end]
+
+    print(f"  cropped length: {data.shape[0]/rate:.2f} seconds")
+
+    #data2 = copy.deepcopy(data)
+    #data2 = data[0:(rate*2)]
+    # Use the last 3 seconds as room tone
+    data2 = data[-(rate*noise_seconds):]
+
+    # perform noise reduction
+    reduced_noise = nr.reduce_noise(y=data, y_noise=data2, sr=rate, prop_decrease=prop_decrease, stationary=stationary)
+
+    # try to find the places in the file where shit's the loudest
+    peaks, unknown = scipy.signal.find_peaks(reduced_noise, distance=rate/2, height=260000000)
+    #print(f"  peaks:{len(peaks)}")
+    #if (len(peaks) < 10):
+    #    dump(scipy.signal.peak_prominences(reduced_noise, peaks))
+    #    for p in peaks:
+    #        print(f"  {p/rate}")
+
+    # number of seconds to keep before and after the first/last peaks
+    peak_padding = 1
+
+    default_trim_start = 0
+    default_trim_end = len(reduced_noise)
+    if (peaks[0] > peak_padding * rate):
+        default_trim_start = peaks[0] - (peak_padding * rate)
+    if (peaks[-1] < (len(reduced_noise) - (peak_padding * rate))):
+        default_trim_end = peaks[-1] + (peak_padding * rate)
+
+    trim_start = default_trim_start + int(peak_start_override * rate)
+    print(f"  first peak: {(default_trim_start/rate):.2f}+({peak_start_override}) = {(trim_start/rate):.2f}")
+    trim_end = default_trim_end + int(peak_end_override * rate)
+    print(f"  last peak: {(default_trim_end/rate):.2f}+({peak_end_override}) = {(trim_end/rate):.2f}")
+
+    if (trim_start < 0): trim_start = 0
+    if (trim_end > len(reduced_noise)): trim_end = len(reduced_noise)
+    if (trim_start > trim_end):
+        raise Exception(f"invalid crop range '{trim_start}' to '{trim_end}'")
+
+    print(f"  cropping reduced file from {(trim_start/rate):.2f} to {(trim_end/rate):.2f}")
+    reduced_noise = reduced_noise[trim_start:trim_end]
+    reduced_seconds = reduced_noise.shape[0]/rate
+    print(f"  reduced length: {reduced_seconds:.2f}")
+
+    reduced_file = reduced_filename(file)
+    print(f"  writing {reduced_file}")
+    wavfile.write(reduced_file, rate, reduced_noise)
 
 def reduced_filename(file):
     basename = os.path.basename(file)

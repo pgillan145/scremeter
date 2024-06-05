@@ -93,7 +93,6 @@ def trigger_file():
 
 def turnWriteCacheOff():
     global use_cache
-    print("OFF")
     use_cache = False
 
 def wav_dir():
@@ -107,6 +106,6 @@ def wav_dir():
 config = minorimpact.config.getConfig(script_name = 'scremeter')
 cache = None
 use_cache = True
-    
+
 atexit.register(writeCache)
 
