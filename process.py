@@ -447,10 +447,11 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
 
     default_trim_start = 0
     default_trim_end = len(reduced_noise)
-    if (peaks[0] > peak_padding * rate):
-        default_trim_start = peaks[0] - (peak_padding * rate)
-    if (peaks[-1] < (len(reduced_noise) - (peak_padding * rate))):
-        default_trim_end = peaks[-1] + (peak_padding * rate)
+    if (len(peaks) > 0):
+        if (peaks[0] > peak_padding * rate):
+            default_trim_start = peaks[0] - (peak_padding * rate)
+        if (peaks[-1] < (len(reduced_noise) - (peak_padding * rate))):
+            default_trim_end = peaks[-1] + (peak_padding * rate)
 
     trim_start = default_trim_start + int(peak_start_override * rate)
     print(f"  first peak: {(default_trim_start/rate):.2f}+({peak_start_override}) = {(trim_start/rate):.2f}")

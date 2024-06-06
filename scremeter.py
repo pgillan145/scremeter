@@ -56,8 +56,9 @@ def main():
                 while (len(frames) > pre_buffer):
                     del frames[0]
 
-            print(f"\rbuffer length: {len(frames)}s", end='')
-            if (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now()):
+            if (trigger_time is not None and  trigger_time + timedelta(seconds=post_buffer) > datetime.now()):
+                print(f"\rbuffer length: {len(frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
+            elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now()):
                 if (len(frames) > 0):
                     buffer_file = filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
                     print(f"\nwriting wav file: {buffer_file}")
@@ -69,6 +70,8 @@ def main():
                         wf.writeframes(b''.join(frames[i]))
                     wf.close()
                     trigger_time = None
+            else:
+                print(f"\rbuffer length: {len(frames)}s", end='')
 
         except KeyboardInterrupt:
             break
