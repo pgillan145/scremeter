@@ -245,43 +245,6 @@ def main():
 
         # clean up the raw file, if it hasn't been already
         if (os.path.exists(reduced_file) is False or args.reprocess is True):
-            #print(f"processing {basename}")
-            #rate, data = wavfile.read(file)
-
-            #seconds = data.shape[0]/rate
-            #print(f"  length: {seconds} seconds")
-
-            ##data2 = copy.deepcopy(data)
-            ##data2 = data[0:(rate*2)]
-            ## Use the last 3 seconds as room tone
-            #data2 = data[-(rate*3):]
-
-            ## perform noise reduction
-            #reduced_noise = nr.reduce_noise(y=data, y_noise=data2, sr=rate, prop_decrease=prop_decrease, stationary=True)
-
-            ## try to find the places in the file where shit's the loudest
-            #peaks, unknown = scipy.signal.find_peaks(reduced_noise, distance=rate/2, height=260000000)
-            ##print(f"  peaks:{len(peaks)}")
-            ##if (len(peaks) < 10):
-            ##    dump(scipy.signal.peak_prominences(reduced_noise, peaks))
-            ##    for p in peaks:
-            ##        print(f"  {p/rate}")
-
-            ## number of seconds to keep before and after the first/last peaks
-            #peak_padding = 1
-
-            #trim_start = 0
-            #trim_end = len(reduced_noise)
-            #if (peaks[0] > rate*peak_padding):
-            #    trim_start = peaks[0] - (rate*peak_padding)
-            #if (peaks[-1] < len(reduced_noise) - (rate*peak_padding)):
-            #    trim_end = peaks[-1] + (rate*peak_padding)
-
-            #print(f"  cropping from {trim_start/rate} to {trim_end/rate}")
-            #reduced_noise = reduced_noise[trim_start:trim_end]
-
-            #print(f"  writing {reduced_file}")
-            #wavfile.write(reduced_file, rate, reduced_noise)
             process_file(file)
 
         # let the user decide what to do with this file
@@ -342,6 +305,7 @@ def main():
                                 crop_start += 1
                             elif (crop_side == 'end'):
                                 crop_end -= 1
+                                if (crop_end < 0): crop_end = 0
 
                         process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
             elif (c == 'd'):
@@ -405,34 +369,30 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
     basename = os.path.basename(file)
 
     print(f"processing {basename}")
-    rate, data = wavfile.read(file)
-    print(f"  original length: {data.shape[0]/rate:.2f} seconds")
+    rate, raw_data = wavfile.read(file)
+    raw_length = raw_data.shape[0]/rate
 
     trim_start = 0
-    trim_end = len(data)
+    trim_end = len(raw_data)
     if (crop_start > 0):
         trim_start = int(crop_start * rate)
 
     if (crop_end > 0):
-        trim_end = len(data) - int(crop_end * rate)
+        trim_end = len(raw_data) - int(crop_end * rate)
 
     if (trim_start > trim_end):
         raise Exception(f"Invalid raw crop range {trim_start} to {trim_end}")
 
-    if (trim_start > 0 or trim_end < len(data)):
-        print(f"  cropping initial file: 0(+{crop_start}) = {int(trim_start/rate)} to {int(len(data)/rate)}(-{crop_end}) = {int(trim_end/rate)}")
+    if (trim_start > 0 or trim_end < len(raw_data)):
+        print(f"  cropping initial file: 0(+{crop_start}) = {int(trim_start/rate)} to {int(len(raw_data)/rate)}(-{crop_end}) = {int(trim_end/rate)}")
 
-    data = data[trim_start:trim_end]
+    data = raw_data[trim_start:trim_end]
 
-    print(f"  cropped length: {data.shape[0]/rate:.2f} seconds")
-
-    #data2 = copy.deepcopy(data)
-    #data2 = data[0:(rate*2)]
     # Use the last 3 seconds as room tone
-    data2 = data[-(rate*noise_seconds):]
+    noise_data = data[-(rate*noise_seconds):]
 
     # perform noise reduction
-    reduced_noise = nr.reduce_noise(y=data, y_noise=data2, sr=rate, prop_decrease=prop_decrease, stationary=stationary)
+    reduced_noise = nr.reduce_noise(y=data, y_noise=noise_data, sr=rate, prop_decrease=prop_decrease, stationary=stationary)
 
     # try to find the places in the file where shit's the loudest
     peaks, unknown = scipy.signal.find_peaks(reduced_noise, distance=rate/2, height=260000000)
@@ -445,28 +405,54 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
     # number of seconds to keep before and after the first/last peaks
     peak_padding = 1
 
-    default_trim_start = 0
-    default_trim_end = len(reduced_noise)
+    peak_trim_start = 0
+    peak_trim_end = len(reduced_noise)
     if (len(peaks) > 0):
         if (peaks[0] > peak_padding * rate):
-            default_trim_start = peaks[0] - (peak_padding * rate)
+            peak_trim_start = peaks[0] - (peak_padding * rate)
         if (peaks[-1] < (len(reduced_noise) - (peak_padding * rate))):
-            default_trim_end = peaks[-1] + (peak_padding * rate)
+            peak_trim_end = peaks[-1] + (peak_padding * rate)
+    else:
+        peaks[0] = 0
+        peaks[1] = len(reduced_noise)
 
-    trim_start = default_trim_start + int(peak_start_override * rate)
-    print(f"  first peak: {(default_trim_start/rate):.2f}+({peak_start_override}) = {(trim_start/rate):.2f}")
-    trim_end = default_trim_end + int(peak_end_override * rate)
-    print(f"  last peak: {(default_trim_end/rate):.2f}+({peak_end_override}) = {(trim_end/rate):.2f}")
+    peak_trim_start = peak_trim_start + int(peak_start_override * rate)
+    #print(f"  first peak: {(peaks[0]/rate):.2f}+({peak_start_override}) = {(peak_trim_start/rate):.2f}")
+    peak_trim_end = peak_trim_end + int(peak_end_override * rate)
+    #print(f"  last peak: {(peaks[-1]/rate):.2f}+({peak_end_override}) = {(peak_trim_end/rate):.2f}")
 
-    if (trim_start < 0): trim_start = 0
-    if (trim_end > len(reduced_noise)): trim_end = len(reduced_noise)
-    if (trim_start > trim_end):
-        raise Exception(f"invalid crop range '{trim_start}' to '{trim_end}'")
+    if (peak_trim_start < 0): peak_trim_start = 0
+    if (peak_trim_end > len(reduced_noise)): peak_trim_end = len(reduced_noise)
+    if (peak_trim_start > peak_trim_end):
+        raise Exception(f"invalid crop range '{peak_trim_start}' to '{peak_trim_end}'")
 
-    print(f"  cropping reduced file from {(trim_start/rate):.2f} to {(trim_end/rate):.2f}")
-    reduced_noise = reduced_noise[trim_start:trim_end]
+    #print(f"  cropping reduced file from {(peak_trim_start/rate):.2f} to {(peak_trim_end/rate):.2f}")
+    reduced_noise = reduced_noise[peak_trim_start:peak_trim_end]
     reduced_seconds = reduced_noise.shape[0]/rate
-    print(f"  reduced length: {reduced_seconds:.2f}")
+
+    output_length = 60
+    print(f"  raw:        0.00s - {raw_length:5.2f}s: {raw_length:5.2f}s")
+    print(f"  trimmed:   {trim_start/rate:5.2f}s (0+{crop_start}) - {trim_end/rate:5.2f}s ({raw_length:5.2f}-{crop_end}): {data.shape[0]/rate:5.2f}s")
+    print(f"  peak trim: {((peak_trim_start+trim_start)/rate):5.2f}s ({(((peaks[0]+trim_start)+(peak_padding*rate))/rate):5.2f}+{peak_start_override})  - {((peak_trim_end+trim_start)/rate):5.2f}s ({(((peaks[-1]+trim_start)-(peak_padding*rate))/rate):5.2f}+{peak_end_override}): {reduced_noise.shape[0]/rate:.2f}s")
+    peak_map = {}
+    for p in peaks:
+        peak_map[int(((((p+trim_start)/rate)*(output_length-1))/raw_length)+1)] = True
+
+    output = ''
+    for i in range(1,output_length+1):
+        if (i == int(((((peak_trim_start+trim_start)/rate)*(output_length-1))/raw_length)+1)):
+            output += '['
+        elif (i == int(((((peak_trim_end+trim_start)/rate)*(output_length-1))/raw_length)+1)):
+            output += ']'
+        elif (i in peak_map):
+            output += '^'
+        elif (i < int((((trim_start/rate)*(output_length-1))/raw_length)+1) or i > int((((trim_end/rate)*(output_length-1))/raw_length)+1)):
+            output += '.'
+        else:
+            output += '-'
+
+    print(output)
+
 
     reduced_file = reduced_filename(file)
     print(f"  writing {reduced_file}")
