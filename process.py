@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+from datetime import datetime
 from dumper import dump
 import minorimpact
 import noisereduce as nr
@@ -35,14 +36,14 @@ def audio_length(file):
     seconds = data.shape[0]/rate
     return seconds
 
-def consolidate(date_hour):
+def consolidate(date_hour, force = False):
     print(f"CONS {date_hour}")
 
     consolidate = []
     consolidated_header = 'consolidated'
     start = None
     end = None
-    m = re.search("(\d\d\d\d)(\d\d)(\d\d)(\d\d)", date_hour)
+    m = re.search("(\\d\\d\\d\\d)(\\d\\d)(\\d\\d)(\\d\\d)", date_hour)
     if (m is None):
         raise Exception(f"invalid date_hour:{date_hour}")
 
@@ -52,7 +53,7 @@ def consolidate(date_hour):
     for file in sorted(files):
         #print(file)
         basename = os.path.basename(file)
-        m = re.search("^(.+)-(\d\d\d\d-\d\d-\d\d-\d\d_\d\d_\d\d)", basename)
+        m = re.search("^(.+)-(\\d\\d\\d\\d-\\d\\d-\\d\\d-\\d\\d_\\d\\d_\\d\\d)", basename)
         if (m is None):
             continue
 
@@ -82,7 +83,7 @@ def consolidate(date_hour):
     if (mp4_dir is not None):
         mp4_file = mp4_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp4'
         t = date + start + ' to ' + date + end
-        t = re.sub('(\d\d\d\d)-(\d\d)-(\d\d)-','\g<1>\\/\g<2>\\/\g<3> ', t)
+        t = re.sub('(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-','\\g<1>\\/\\g<2>\\/\\g<3> ', t)
         t = re.sub('_', '\\\\\\:',t)
 
         mp4_title = mp4_title + '\n' + t + '\n' + str(len(consolidate)) + ' event'
@@ -159,6 +160,7 @@ def main():
     parser.add_argument('--clear_cache', help = "clear the processing cache and reevaluate everything", action='store_true')
     parser.add_argument('-e', '--edits', help = "show files that need to be edited", action='store_true')
     parser.add_argument('-f', '--flagged', help = "show flagged files", action='store_true')
+    parser.add_argument('--force', help = "consolidate all processed items even if we're still in the current hour", action='store_true')
     parser.add_argument('-r', '--reprocess', help = "reduce files even if they already exist", action='store_true')
     parser.add_argument('-v', '--verbose', help = "Verbose output", action='store_true')
     args = parser.parse_args()
@@ -339,15 +341,17 @@ def main():
             elif (c=='q'):
                 sys.exit()
 
+        current_date_hour = datetime.now().strftime("%Y%m%d%H")
         # once every file for this hour has been marked 'keep', consolidate the hour
         if (date_hour_log[date_hour] == 0):
-            consolidate(date_hour)
+            if (date_hour != current_date_hour or args.force is True):
+                consolidate(date_hour)
 
     minorimpact.write_cache(scremeter.cache_file(), cache)
 
 def parse_filename(file):
     basename = os.path.basename(file)
-    m = re.search("^(.+)-(\d\d\d\d)-(\d\d)-(\d\d)-(\d\d)_(\d\d)_(\d\d)", basename)
+    m = re.search("^(.+)-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-(\\d\\d)_(\\d\\d)_(\\d\\d)", basename)
     if (m is not None):
         header = m[1]
         year = m[2]
@@ -460,7 +464,7 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
 
 def reduced_filename(file):
     basename = os.path.basename(file)
-    m = re.search("^(.+)-(\d\d\d\d-\d\d-\d\d-\d\d_\d\d_\d\d)", basename)
+    m = re.search("^(.+)-(\\d\\d\\d\\d-\\d\\d-\\d\\d-\\d\\d_\\d\\d_\\d\\d)", basename)
     if (m is None):
         raise Exception(f"invalid filename {file}")
 

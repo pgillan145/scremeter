@@ -5,7 +5,7 @@ import minorimpact
 import minorimpact.config
 import os.path
 
-__VERSION__ = '0.0.1'
+__version__ = '0.0.1'
 
 def archive_dir():
     if ('archive_dir' in config['default']):
