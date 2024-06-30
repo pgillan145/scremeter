@@ -256,7 +256,7 @@ def main():
             c = minorimpact.getChar(default='', end='\n', prompt="command? ", echo=True).lower()
             if (c == 'c'):
                 crop_mode = 'raw'
-                crop_start = scremeter.pre_buffer() - 1
+                crop_start = scremeter.pre_buffer() - 2
                 crop_end = 0
                 peak_start_override = 0
                 peak_end_override = 0
@@ -369,7 +369,7 @@ def play(file, play_command = 'aplay'):
     command = [play_command,file]
     subprocess.run(command)
 
-def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True, peak_start_override = 0, peak_end_override = 0, crop_start = scremeter.pre_buffer() - 1, crop_end = 0):
+def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True, peak_start_override = 0, peak_end_override = 0, crop_start = scremeter.pre_buffer() - 2, crop_end = 0):
     basename = os.path.basename(file)
 
     print(f"processing {basename}")
@@ -417,8 +417,8 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
         if (peaks[-1] < (len(reduced_noise) - (peak_padding * rate))):
             peak_trim_end = peaks[-1] + (peak_padding * rate)
     else:
-        peaks[0] = 0
-        peaks[1] = len(reduced_noise)
+        numpy.append(peaks, 0)
+        numpy.append(peaks, len(reduced_noise))
 
     peak_trim_start = peak_trim_start + int(peak_start_override * rate)
     #print(f"  first peak: {(peaks[0]/rate):.2f}+({peak_start_override}) = {(peak_trim_start/rate):.2f}")
