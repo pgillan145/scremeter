@@ -12,7 +12,7 @@ import wave
 
 chunk = 256  # How large each chunk of data we record will be. Larger values seem to come out crackly.
 sample_format = pyaudio.paInt24  # 24 bits per sample
-device_match_string = 'C-Media USB'
+device_match_string = scremeter.audio_device()
 channels = 1
 frequency = 44100  # Record at 44100 samples per second
 pre_buffer = scremeter.pre_buffer()
@@ -86,8 +86,17 @@ def record(p, frames, event):
     print("scanning usb devices")
     for i in range(0, numdevices):
         if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
-            name = p.get_device_info_by_host_api_device_index(0, i).get('name')
+            devinfo = p.get_device_info_by_host_api_device_index(0, i)
+            name = devinfo.get('name')
             print("Input Device id ", i, " - ", name)
+            #print(float(frequency), i, channels, sample_format)
+            #if (p.is_format_supported(float(frequency), input_device=i, input_channels=channels, input_format=sample_format)):
+            #    print("SUPPORTED")
+            #    if (re.match(device_match_string, name) and deviceid is None):
+            #        deviceid = i
+            #        print("Using ", name)
+            #else:
+            #    print("UNSUPPORTED")
             if (re.match(device_match_string, name) and deviceid is None):
                 deviceid = i
                 print("Using ", name)
@@ -103,7 +112,8 @@ def record(p, frames, event):
                     rate=frequency,
                     frames_per_buffer=chunk,
                     input_device_index = deviceid,
-                    input=True)
+                    input=True,
+                    output=False)
 
     while(event.is_set() is False):
         f = []

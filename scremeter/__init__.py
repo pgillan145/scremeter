@@ -7,6 +7,11 @@ import os.path
 
 __version__ = '0.0.1'
 
+def audio_device():
+    if ('audio_device' in config['default']):
+        return config['default']['audio_device']
+    return None
+
 def archive_dir():
     if ('archive_dir' in config['default']):
         return config['default']['archive_dir']
