@@ -18,7 +18,7 @@ def main():
     height = 1080
     fps = 30
 
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FOURCC, codec)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -27,7 +27,7 @@ def main():
 
     #output = cv2.VideoWriter(f'./cam_video.{ext}', codec, float(fps), (width, height))
     
-    base_path = f"/home/pgillan/Documents/scremus/images/{scremeter.title()}"
+    base_path = f"/home/pgillan/Documents/scremus/timelapse-raw/{scremeter.title()}"
 
     last = datetime.now()
     while (True):

@@ -4,6 +4,7 @@ from dumper import dump
 import minorimpact
 import minorimpact.config
 import os.path
+import re
 
 __version__ = '0.0.1'
 
@@ -73,6 +74,20 @@ def mp4_dir():
     if ('mp4_dir' in config['default']):
         return config['default']['mp4_dir']
     return None
+
+def parse_filename(file):
+    basename = os.path.basename(file)
+    m = re.search("^(.+)-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-(\\d\\d)_(\\d\\d)_(\\d\\d)", basename)
+    if (m is not None):
+        header = m[1]
+        year = m[2]
+        month = m[3]
+        day = m[4]
+        hour = m[5]
+        minute = m[6]
+        second = m[7]
+        return { 'header':header, 'year':year, 'month':month, 'day':day, 'hour':hour, 'minute':minute, 'second':second }
+    raise Exception(f"invalid filename: {basename}")
 
 def post_buffer():
     return int(config['default']['post_buffer'])
