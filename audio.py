@@ -17,7 +17,7 @@ channels = 1
 frequency = 44100  # Record at 44100 samples per second
 pre_buffer = scremeter.pre_buffer()
 post_buffer = scremeter.post_buffer()
-filename = scremeter.raw_dir() + '/' + scremeter.title() + "-"
+filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() + "-"
 stop_recording = False
 
 scremeter.turnWriteCacheOff()

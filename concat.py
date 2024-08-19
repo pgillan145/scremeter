@@ -18,14 +18,6 @@ import shutil
 import subprocess
 import sys
 
-archive_dir = scremeter.archive_dir()
-flagged_dir = scremeter.flagged_dir()
-mp3_dir = scremeter.mp3_dir()
-mp4_dir = scremeter.mp4_dir()
-wav_dir = scremeter.wav_dir()
-processed_dir = scremeter.processed_dir()
-raw_dir = scremeter.raw_dir()
-
 cache = {}
 
 def concat(concat_type, filename, files, archive = None):
@@ -63,9 +55,8 @@ def concat(concat_type, filename, files, archive = None):
         raise Exception('invalid concatenation type')
 
 def scan_files(path):
-
     # Timelapse
-    files = minorimpact.readdir(f'{path}/timelapse-raw')
+    files = minorimpact.readdir(f'{scremeter.timelapse_dir()}-raw')
     current_date_hour = makeDateHour()
     print("current date hour:" , current_date_hour)
     
@@ -87,7 +78,7 @@ def scan_files(path):
         if (len(to_concat[date_hour]) == 0):
             continue
         file_info = scremeter.parse_filename(to_concat[date_hour][0])
-        concat('timelapse', f"{path}/timelapse/{file_info['header']}_{date_hour}.mp4", to_concat[date_hour], archive=f"/Volumes/Archive/Backups/scremus/timelapse-raw/{file_info['header']}-{date_hour}")
+        concat('timelapse', f"{scremeter.timelapse_dir()}/{file_info['header']}_{date_hour}.mp4", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw=True, archive = True)}/{file_info['header']}-{date_hour}")
         #break
 
 
@@ -147,8 +138,7 @@ def main():
     # cache = scremeter.get_cache(clear_cache = args.clear_cache)
     scremeter.turnWriteCacheOff()
 
-    path = '/home/pgillan/Documents/scremus'
-    scan_files(path)
+    scan_files(scremeter.scremeter_dir())
 
 if __name__ == '__main__':
     main()

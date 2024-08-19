@@ -13,10 +13,14 @@ def audio_device():
         return config['default']['audio_device']
     return None
 
-def archive_dir():
-    if ('archive_dir' in config['default']):
-        return config['default']['archive_dir']
-    return None
+def audio_dir(raw = False, archive = False, processed = False):
+    dir = f'{scremeter_dir(archive = archive)}/audio'
+    if (raw is True): dir = dir + '-raw'
+    elif (processed is True): dir = dir + '-processed'
+
+    if (os.path.exists(dir) is False):
+        os.makedirs(dir, exist_ok = True)
+    return dir
 
 def beep():
     if ('beep' in config['default']):
@@ -28,21 +32,11 @@ def cache_file():
         return config['default']['cache_file']
     return None
 
-def writeCache():
-    global cache
-
-    if (use_cache is False): return
-
-    c_file = cache_file()
-    if (c_file is not None):
-        print(f"writing {c_file}")
-        #dump(cache)
-        minorimpact.write_cache(c_file, cache)
-
-def flagged_dir():
-    if ('flagged_dir' in config['default']):
-        return config['default']['flagged_dir']
-    return None
+def flagged_dir(archive = False):
+    dir = f'{scremeter_dir(archive=archive)}/flagged'
+    if (os.path.exists(dir) is False):
+        os.makedirs(dir, exist_ok = True)
+    return dir
 
 def get_cache(clear_cache = False):
     global cache
@@ -66,14 +60,10 @@ def get_cache(clear_cache = False):
     return cache
 
 def mp3_dir():
-    if ('mp3_dir' in config['default']):
-        return config['default']['mp3_dir']
-    return None
+    return audio_dir()
 
 def mp4_dir():
-    if ('mp4_dir' in config['default']):
-        return config['default']['mp4_dir']
-    return None
+    return f'{audio_dir()}-mp4'
 
 def parse_filename(file):
     basename = os.path.basename(file)
@@ -95,13 +85,29 @@ def post_buffer():
 def pre_buffer():
     return int(config['default']['pre_buffer'])
 
-def processed_dir():
-    if ('processed_dir' in config['default']):
-        return config['default']['processed_dir']
-    return None
+def scremeter_dir(archive = False):
+    dir = None
+    if (archive is True):
+        if ('archive_dir' in config['default']):
+            dir = config['default']['archive_dir']
+    else:
+        if ('scremeter_dir' in config['default']):
+           dir = config['default']['scremeter_dir']
 
-def raw_dir():
-    return config['default']['raw_dir']
+    if (dir is None):
+        raise Exception('scremeter_dir is not defined')
+    if (os.path.exists(dir) is False):
+        raise Exception(f'{dir} does not exist')
+
+    return dir
+
+def timelapse_dir(raw = False, archive = False):
+    dir = f'{scremeter_dir(archive = archive)}/timelapse'
+    if (raw is True): dir = dir + '-raw'
+
+    if (os.path.exists(dir) is False):
+        os.makedirs(dir, exist_ok = True)
+    return dir
 
 def title():
     if ('title' in config['default']):
@@ -115,13 +121,27 @@ def turnWriteCacheOff():
     global use_cache
     use_cache = False
 
+def writeCache():
+    global cache
+
+    if (use_cache is False): return
+
+    c_file = cache_file()
+    if (c_file is not None):
+        print(f"writing {c_file}")
+        #dump(cache)
+        minorimpact.write_cache(c_file, cache)
+
 def wav_dir():
-    if ('wav_dir' not in config['default']):
-        raise Exception('wav_dir is not defined')
-    wav_dir = config['default']['wav_dir']
-    if (os.path.exists(wav_dir) is False):
-        raise Exception(f"{wav_dir} doesn't exist")
-    return wav_dir
+    dir = f'{audio_dir()}-wav'
+    if (os.path.exists(dir) is False):
+        os.makedirs(dir, exist_ok = True)
+    return dir
+
+def video_device():
+    if ('video_device' in config['default']):
+        return config['default']['video_device']
+    return None
 
 config = minorimpact.config.getConfig(script_name = 'scremeter')
 cache = None

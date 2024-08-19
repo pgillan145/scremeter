@@ -27,7 +27,7 @@ def main():
 
     #output = cv2.VideoWriter(f'./cam_video.{ext}', codec, float(fps), (width, height))
     
-    base_path = f"/home/pgillan/Documents/scremus/timelapse-raw/{scremeter.title()}"
+    base_path = f"{scremeter.timelapse_dir(raw = True)}/{scremeter.title()}"
 
     last = datetime.now()
     while (True):

@@ -18,17 +18,16 @@ import shutil
 import subprocess
 import sys
 
-archive_dir = scremeter.archive_dir()
-flagged_dir = scremeter.flagged_dir()
-mp3_dir = scremeter.mp3_dir()
+archive_dir = scremeter.audio_dir(raw = True, archive = True)
+mp3_dir = scremeter.audio_dir()
 mp4_dir = scremeter.mp4_dir()
 wav_dir = scremeter.wav_dir()
-processed_dir = scremeter.processed_dir()
-raw_dir = scremeter.raw_dir()
+processed_dir = scremeter.audio_dir(processed = True)
+processed_archive_dir = scremeter.audio_dir(processed = True, archive = True)
+raw_dir = scremeter.audio_dir(raw = True)
 
 cache = {}
 prop_decrease = .85
-
 
 def audio_length(file):
     rate, data = wavfile.read(file)
@@ -98,13 +97,13 @@ def consolidate(date_hour, force = False):
     consolidated_data = None
     i = 0
     for file in consolidate:
-        reduced_file = reduced_filename(file)
-        if (os.path.exists(reduced_file) is False):
-            raise Exception(f"{reduced_file} doesn't exist")
+        processed_file = processed_filename(file)
+        if (os.path.exists(processed_file) is False):
+            raise Exception(f"{processed_file} doesn't exist")
 
         #print(file)
-        #print(reduced_file)
-        rate, data = wavfile.read(reduced_file)
+        #print(processed_file)
+        rate, data = wavfile.read(processed_file)
         if (anchor_rate is None):
             anchor_rate = rate
         elif (anchor_rate != rate):
@@ -141,11 +140,11 @@ def consolidate(date_hour, force = False):
     for file in consolidate:
         basename = os.path.basename(file)
         archive_file = archive_dir + '/' + basename
-        reduced_file = reduced_filename(file)
+        processed_file = processed_filename(file)
 
-        # moved the raw files we used into the archive directory and remove the "reduced" files
+        # moved the processed files into the archive directory and remove the "processed" files
         shutil.move(file, archive_file)
-        delete(reduced_file)
+        shutil.move(processed_file, processed_archive_dir)
         del(cache['files'][file])
 
 def delete(file):
@@ -184,7 +183,7 @@ def main():
     date_hour_log = {}
     # collect the number of files for each hour so we know when we're done and can start to process them.
     for file in wav_files:
-        parsed = parse_filename(file)
+        parsed = scremeter.parse_filename(file)
 
         date_hour = parsed['year'] + parsed['month'] + parsed['day'] + parsed['hour']
         if (date_hour not in date_hour_log):
@@ -201,13 +200,13 @@ def main():
     for file in wav_files:
         status = None
         basename = os.path.basename(file)
-        parsed = parse_filename(file)
+        parsed = scremeter.parse_filename(file)
         date_hour = parsed['year'] + parsed['month'] + parsed['day'] + parsed['hour']
 
         md5 = minorimpact.md5dir(file)
-        #reduced_basename = f"{header}-{date}-reduced.wav"
-        #reduced_file = processed_dir + "/" + reduced_basename
-        reduced_file = reduced_filename(file)
+        #processed_basename = f"{header}-{date}-processed.wav"
+        #processed_file = processed_dir + "/" + processed_basename
+        processed_file = processed_filename(file)
 
         if (file in cache['files']):
             status = cache['files'][file]['status']
@@ -222,7 +221,7 @@ def main():
                     print(f"{basename}")
                     continue
             if(status == 'keep'):
-                if (os.path.exists(reduced_file) is False):
+                if (os.path.exists(processed_file) is False):
                     status = None
                     del(cache['files'][file])
                 else:
@@ -238,7 +237,7 @@ def main():
                 elif ( md5 != cache['files'][file]['md5']):
                     #print(f"{basename}")
                     #print("  original file has changed")
-                    delete(reduced_file)
+                    delete(processed_file)
                     del(cache['files'][file])
 
         # If the user just wanted to look at flagged files, we're done with that, go on to the next item
@@ -246,7 +245,7 @@ def main():
         if (args.flagged is True): continue
 
         # clean up the raw file, if it hasn't been already
-        if (os.path.exists(reduced_file) is False or args.reprocess is True):
+        if (os.path.exists(processed_file) is False or args.reprocess is True):
             process_file(file)
 
         # let the user decide what to do with this file
@@ -278,7 +277,7 @@ def main():
                     elif (c == 'z' or c == 's'):
                         crop_side = 'start'
                     elif (c == ' '):
-                        play(reduced_file)
+                        play(processed_file)
                     elif (c == '-'):
                         if (crop_mode == 'peak'):
                             if (crop_side == 'start'):
@@ -314,12 +313,12 @@ def main():
                 c = minorimpact.getChar(default='', end='\n', prompt="again, please ", echo=True).lower()
                 if (c == 'd'):
                     delete(file)
-                    delete(reduced_file)
+                    delete(processed_file)
                     date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                     break
             elif (c == 'e'):
                 cache['files'][file] = { 'status':'edit', 'flagged':False, 'md5':md5 }
-                delete(reduced_file)
+                delete(processed_file)
                 break
             elif (c == 'f'):
                 # This one is special, we want to flag it for future consideration
@@ -337,7 +336,7 @@ def main():
                 date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                 break
             elif (c == ' '):
-                play(reduced_file)
+                play(processed_file)
             elif (c=='q'):
                 sys.exit()
 
@@ -348,20 +347,6 @@ def main():
                 consolidate(date_hour)
 
     minorimpact.write_cache(scremeter.cache_file(), cache)
-
-def parse_filename(file):
-    basename = os.path.basename(file)
-    m = re.search("^(.+)-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-(\\d\\d)_(\\d\\d)_(\\d\\d)", basename)
-    if (m is not None):
-        header = m[1]
-        year = m[2]
-        month = m[3]
-        day = m[4]
-        hour = m[5]
-        minute = m[6]
-        second = m[7]
-        return { 'header':header, 'year':year, 'month':month, 'day':day, 'hour':hour, 'minute':minute, 'second':second }
-    raise Exception(f"invalid filename: {basename}")
 
 def play(file, play_command = 'aplay'):
     if (file is None):
@@ -458,23 +443,26 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
     print(output)
 
 
-    reduced_file = reduced_filename(file)
-    print(f"  writing {reduced_file}")
-    wavfile.write(reduced_file, rate, reduced_noise)
+    processed_file = processed_filename(file)
+    print(f"  writing {processed_file}")
+    wavfile.write(processed_file, rate, reduced_noise)
 
-def reduced_filename(file):
-    basename = os.path.basename(file)
-    m = re.search("^(.+)-(\\d\\d\\d\\d-\\d\\d-\\d\\d-\\d\\d_\\d\\d_\\d\\d)", basename)
-    if (m is None):
-        raise Exception(f"invalid filename {file}")
+def processed_filename(file):
+    #basename = os.path.basename(file)
+    #m = re.search("^(.+)-(\\d\\d\\d\\d-\\d\\d-\\d\\d-\\d\\d_\\d\\d_\\d\\d)", basename)
+    #if (m is None):
+    #    raise Exception(f"invalid filename {file}")
+    #header = m[1]
+    #date = m[2]
 
-    header = m[1]
-    date = m[2]
+    file_info = scremeter.parse_filename(file)
+    header = file_info['header']
+    date = f"{file_info['year']}-{file_info['month']}-{file_info['day']}-{file_info['hour']}_{file_info['minute']}_{file_info['second']}"
 
-    reduced_basename = f"{header}-{date}-reduced.wav"
-    reduced_file = processed_dir + "/" + reduced_basename
+    processed_basename = f"{header}-{date}-processed.wav"
+    processed_file = processed_dir + "/" + processed_basename
 
-    return reduced_file
+    return processed_file
 
 if __name__ == '__main__':
     main()
