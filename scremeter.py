@@ -17,7 +17,7 @@ channels = 1
 frequency = 44100  # Record at 44100 samples per second
 pre_buffer = scremeter.pre_buffer()
 post_buffer = scremeter.post_buffer()
-filename = scremeter.raw_dir() + '/' + scremeter.title() + "-"
+audio_filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() + "-"
 stop_recording = False
 
 scremeter.turnWriteCacheOff()
@@ -25,12 +25,13 @@ scremeter.turnWriteCacheOff()
 def main():
     p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
-    frames = []
-    recording_thread = None
+    audio_frames = []
+    video_frames = []
+    audio_recording_thread = None
     event = Event()
     try:
-        recording_thread = Thread(target=record, name='recording', args=[p, frames, event])
-        recording_thread.start()
+        audio_recording_thread = Thread(target=record_audio, name='recording', args=[p, audio_frames, event])
+        audio_recording_thread.start()
     except:
         sys.exit('Error starting recording thread')
 
@@ -44,7 +45,7 @@ def main():
 
     while (event.is_set() is False):
         try:
-            # just run once a second
+            # just run once a couple of times a second
             time.sleep(.5)
 
             t = trigger()
@@ -53,25 +54,25 @@ def main():
                 trigger_time = t
 
             if (trigger_time is None):
-                while (len(frames) > pre_buffer):
-                    del frames[0]
+                while (len(audio_frames) > pre_buffer):
+                    del audio_frames[0]
 
             if (trigger_time is not None and  trigger_time + timedelta(seconds=post_buffer) > datetime.now()):
-                print(f"\rbuffer length: {len(frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
+                print(f"\raudio buffer length: {len(audio_frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
             elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now()):
-                if (len(frames) > 0):
-                    buffer_file = filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
-                    print(f"\nwriting wav file: {buffer_file}")
-                    wf = wave.open(buffer_file, 'wb')
+                if (len(audio_frames) > 0):
+                    audio_buffer_file = audio_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
+                    print(f"\nwriting wav file: {audio_buffer_file}")
+                    wf = wave.open(audio_buffer_file, 'wb')
                     wf.setnchannels(channels)
                     wf.setsampwidth(p.get_sample_size(sample_format))
                     wf.setframerate(frequency)
-                    for i in range(0, len(frames)):
-                        wf.writeframes(b''.join(frames[i]))
+                    for i in range(0, len(audio_frames)):
+                        wf.writeframes(b''.join(audio_frames[i]))
                     wf.close()
                     trigger_time = None
             else:
-                print(f"\rbuffer length: {len(frames)}s", end='')
+                print(f"\raudio buffer length: {len(audio_frames)}s", end='')
 
         except KeyboardInterrupt:
             break
@@ -79,7 +80,7 @@ def main():
     event.set()
 
 
-def record(p, frames, event):
+def record_audio(p, frames, event):
     info = p.get_host_api_info_by_index(0)
     numdevices = info.get('deviceCount')
     deviceid = None

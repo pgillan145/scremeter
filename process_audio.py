@@ -19,12 +19,15 @@ import subprocess
 import sys
 
 archive_dir = scremeter.audio_dir(raw = True, archive = True)
+flagged_dir = scremeter.flagged_dir()
 mp3_dir = scremeter.audio_dir()
 mp4_dir = scremeter.mp4_dir()
-wav_dir = scremeter.wav_dir()
-processed_dir = scremeter.audio_dir(processed = True)
 processed_archive_dir = scremeter.audio_dir(processed = True, archive = True)
+processed_dir = scremeter.audio_dir(processed = True)
 raw_dir = scremeter.audio_dir(raw = True)
+tmp_dir = scremeter.tmp_dir()
+video_dir = scremeter.video_dir(raw = True)
+wav_dir = scremeter.wav_dir()
 
 cache = {}
 prop_decrease = .85
@@ -171,21 +174,27 @@ def main():
         sys.exit()
 
     # load data
-    wav_files = sorted(minorimpact.readdir(raw_dir))
+    raw_files = sorted(minorimpact.readdir(raw_dir))
+    video_files = sorted(minorimpact.readdir(video_dir))
 
     # Clear invalid entries from the cache
     cache_files = list(cache['files'].keys())
     for file in cache_files:
-        if (file not in wav_files):
+        if (file not in raw_files):
             del(cache['files'][file])
 
-
     date_hour_log = {}
-    # collect the number of files for each hour so we know when we're done and can start to process them.
-    for file in wav_files:
-        parsed = scremeter.parse_filename(file)
+    # collect the number of files for each hour so we know when we're done with a batch and can move them to the
+    #   'processed' directory for concatenation
+    for file in raw_files:
+        file_info = scremeter.parse_filename(file)
 
-        date_hour = parsed['year'] + parsed['month'] + parsed['day'] + parsed['hour']
+        # TODO: See if the corresponding video file exists. If it does, then ignore this audio file, it needs to be bonded
+        #   with that video file.
+        #matching_video_file = video_dir + '/' + scremeter.unparse_filename(file_info, 'mp4')
+        #print(f"matching_video_file:{matching_video_file}")
+
+        date_hour = file_info['year'] + file_info['month'] + file_info['day'] + file_info['hour']
         if (date_hour not in date_hour_log):
             date_hour_log[date_hour] = 0
 
@@ -196,22 +205,26 @@ def main():
     #    print(f"{dh}: {date_hour_log[dh]}")
     #dump(cache)
 
-    flagged_dir = scremeter.flagged_dir()
-    for file in wav_files:
+    # Make a first pass through the list of files to do some things for which we need to see the whole list.
+    for file in raw_files:
         status = None
         basename = os.path.basename(file)
-        parsed = scremeter.parse_filename(file)
-        date_hour = parsed['year'] + parsed['month'] + parsed['day'] + parsed['hour']
+        file_info = scremeter.parse_filename(file)
+        date_hour = file_info['year'] + file_info['month'] + file_info['day'] + file_info['hour']
 
         md5 = minorimpact.md5dir(file)
         #processed_basename = f"{header}-{date}-processed.wav"
-        #processed_file = processed_dir + "/" + processed_basename
-        processed_file = processed_filename(file)
+        #processed_file = processed_filename(file)
+        #archive_file = archived_filename(file)
+        tmp_file = process_file(file)
 
+        """
         if (file in cache['files']):
             status = cache['files'][file]['status']
             flagged = cache['files'][file]['flagged']
             if (flagged is True):
+                # Copy any files that are marked as 'flagged' in cache to the flagged directory if they're
+                #   not already.
                 if (flagged_dir is not None):
                     flagged_file = flagged_dir + '/' + basename
                     if (os.path.exists(flagged_file) is False):
@@ -243,14 +256,16 @@ def main():
         # If the user just wanted to look at flagged files, we're done with that, go on to the next item
         if (args.edits is True): continue
         if (args.flagged is True): continue
+        """
 
-        # clean up the raw file, if it hasn't been already
-        if (os.path.exists(processed_file) is False or args.reprocess is True):
-            process_file(file)
+        ## clean up the raw file, if it hasn't been already
+        #if (os.path.exists(tmp_file) is False or args.reprocess is True):
+        #    tmp_file = process_file(file)
 
         # let the user decide what to do with this file
-        while(True and status != 'keep'):
+        while(True): # and status != 'keep'):
             print(f"unkept files in this block:{date_hour_log[date_hour]}")
+            print(f"tmp_file: {tmp_file}")
             print(f"{basename} (status:'{status}'):")
             c = minorimpact.getChar(default='', end='\n', prompt="command? ", echo=True).lower()
             if (c == 'c'):
@@ -259,7 +274,7 @@ def main():
                 crop_end = 0
                 peak_start_override = 0
                 peak_end_override = 0
-                process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
+                tmp_file = process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
                 crop_side = 'start'
                 while(True):
                     c = minorimpact.getChar(default='', end='\n', prompt=f"  crop command (mode:{crop_mode}, side:{crop_side})? ", echo=True).lower()
@@ -277,7 +292,7 @@ def main():
                     elif (c == 'z' or c == 's'):
                         crop_side = 'start'
                     elif (c == ' '):
-                        play(processed_file)
+                        play(tmp_file)
                     elif (c == '-'):
                         if (crop_mode == 'peak'):
                             if (crop_side == 'start'):
@@ -308,43 +323,53 @@ def main():
                                 crop_end -= 1
                                 if (crop_end < 0): crop_end = 0
 
-                        process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
+                        tmp_file = process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
             elif (c == 'd'):
                 c = minorimpact.getChar(default='', end='\n', prompt="again, please ", echo=True).lower()
                 if (c == 'd'):
+                    print(f"deleting {file}")
                     delete(file)
-                    delete(processed_file)
+                    print(f"deleting {tmp_file}")
+                    delete(tmp_file)
                     date_hour_log[date_hour] = date_hour_log[date_hour] - 1
                     break
             elif (c == 'e'):
                 cache['files'][file] = { 'status':'edit', 'flagged':False, 'md5':md5 }
-                delete(processed_file)
+                delete(tmp_file)
                 break
             elif (c == 'f'):
                 # This one is special, we want to flag it for future consideration
                 flagged_file = flagged_dir + '/' + basename
-                if (os.path.exists(flagged_file) is False):
-                    shutil.copyfile(file, flagged_file)
+                shutil.copyfile(tmp_file, flagged_file)
+                print(f"moving {tmp_file} to {processed_filename(file)}")
+                shutil.move(tmp_file, processed_filename(file))
+                print(f"moving {file} to {archive_dir}")
+                shutil.move(file, archive_dir)
 
-                cache['files'][file] = { 'status':'keep', 'flagged':True }
-                status = 'keep'
                 date_hour_log[date_hour] = date_hour_log[date_hour] - 1
+                #cache['files'][file] = { 'status':'keep', 'flagged':True }
+                #status = 'keep'
                 break
             elif (c == 'k'):
-                cache['files'][file] = { 'status':'keep', 'flagged':False }
-                status = 'keep'
+                #cache['files'][file] = { 'status':'keep', 'flagged':False }
+                #status = 'keep'
                 date_hour_log[date_hour] = date_hour_log[date_hour] - 1
+                print(f"moving {tmp_file} to {processed_filename(file)}")
+                shutil.move(tmp_file, processed_filename(file))
+                print(f"moving {file} to {archive_dir}")
+                shutil.move(file, archive_dir)
                 break
             elif (c == ' '):
-                play(processed_file)
+                play(tmp_file)
             elif (c=='q'):
                 sys.exit()
 
         current_date_hour = datetime.now().strftime("%Y%m%d%H")
+
         # once every file for this hour has been marked 'keep', consolidate the hour
-        if (date_hour_log[date_hour] == 0):
-            if (date_hour != current_date_hour or args.force is True):
-                consolidate(date_hour)
+        #if (date_hour_log[date_hour] == 0):
+        #    if (date_hour != current_date_hour or args.force is True):
+        #        consolidate(date_hour)
 
     minorimpact.write_cache(scremeter.cache_file(), cache)
 
@@ -422,7 +447,8 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
     output_length = 60
     print(f"  raw:        0.00s - {raw_length:5.2f}s: {raw_length:5.2f}s")
     print(f"  trimmed:   {trim_start/rate:5.2f}s (0+{crop_start}) - {trim_end/rate:5.2f}s ({raw_length:5.2f}-{crop_end}): {data.shape[0]/rate:5.2f}s")
-    print(f"  peak trim: {((peak_trim_start+trim_start)/rate):5.2f}s ({(((peaks[0]+trim_start)+(peak_padding*rate))/rate):5.2f}+{peak_start_override})  - {((peak_trim_end+trim_start)/rate):5.2f}s ({(((peaks[-1]+trim_start)-(peak_padding*rate))/rate):5.2f}+{peak_end_override}): {reduced_noise.shape[0]/rate:.2f}s")
+    if (len(peaks) > 0):
+        print(f"  peak trim: {((peak_trim_start+trim_start)/rate):5.2f}s ({(((peaks[0]+trim_start)+(peak_padding*rate))/rate):5.2f}+{peak_start_override})  - {((peak_trim_end+trim_start)/rate):5.2f}s ({(((peaks[-1]+trim_start)-(peak_padding*rate))/rate):5.2f}+{peak_end_override}): {reduced_noise.shape[0]/rate:.2f}s")
     peak_map = {}
     for p in peaks:
         peak_map[int(((((p+trim_start)/rate)*(output_length-1))/raw_length)+1)] = True
@@ -443,9 +469,13 @@ def process_file(file, noise_seconds = 3, prop_decrease = .85, stationary = True
     print(output)
 
 
-    processed_file = processed_filename(file)
-    print(f"  writing {processed_file}")
-    wavfile.write(processed_file, rate, reduced_noise)
+    #processed_file = processed_filename(file)
+    #wavfile.write(processed_file, rate, reduced_noise)
+
+    tmp_file = tmp_filename(file)
+    print(f"  writing {tmp_file}")
+    wavfile.write(tmp_file, rate, reduced_noise)
+    return tmp_file
 
 def processed_filename(file):
     #basename = os.path.basename(file)
@@ -463,6 +493,16 @@ def processed_filename(file):
     processed_file = processed_dir + "/" + processed_basename
 
     return processed_file
+
+def tmp_filename(file):
+    file_info = scremeter.parse_filename(file)
+    header = file_info['header']
+    date = f"{file_info['year']}-{file_info['month']}-{file_info['day']}-{file_info['hour']}_{file_info['minute']}_{file_info['second']}"
+
+    tmp_basename = f"{header}-{date}-tmp.wav"
+    tmp_file = tmp_dir + "/" + tmp_basename
+
+    return tmp_file
 
 if __name__ == '__main__':
     main()

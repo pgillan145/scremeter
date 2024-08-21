@@ -18,6 +18,7 @@ def audio_dir(raw = False, archive = False, processed = False):
     if (raw is True): dir = dir + '-raw'
     elif (processed is True): dir = dir + '-processed'
 
+
     if (os.path.exists(dir) is False):
         os.makedirs(dir, exist_ok = True)
     return dir
@@ -33,7 +34,7 @@ def cache_file():
     return None
 
 def flagged_dir(archive = False):
-    dir = f'{scremeter_dir(archive=archive)}/flagged'
+    dir = f'{scremeter_dir(archive = archive)}/flagged'
     if (os.path.exists(dir) is False):
         os.makedirs(dir, exist_ok = True)
     return dir
@@ -66,6 +67,7 @@ def mp4_dir():
     return f'{audio_dir()}-mp4'
 
 def parse_filename(file):
+    # TODO: Grab extension and extra stuff after the datetime so we have enough info to turn this back into the original filename.
     basename = os.path.basename(file)
     m = re.search("^(.+)-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-(\\d\\d)_(\\d\\d)_(\\d\\d)", basename)
     if (m is not None):
@@ -114,12 +116,45 @@ def title():
         return config['default']['title']
     return 'scremeter'
 
+def tmp_dir():
+    dir = None
+    if ('tmp_dir' in config['default']):
+       dir = config['default']['tmp_dir']
+
+    if (dir is None):
+        raise Exception('tmp_dir is not defined')
+
+    if (os.path.exists(dir) is False):
+        os.makedirs(dir, exist_ok = True)
+    return dir
+
 def trigger_file():
     return config['default']['trigger_file']
 
 def turnWriteCacheOff():
     global use_cache
     use_cache = False
+
+def unparse_filename(file_info, ext, extra = None):
+    new_filename = f"{file_info['header']}-{file_info['header']}-{file_info['header']}-{file_info['header']}-{file_info['header']}_{file_info['header']}_{file_info['header']}"
+    if (extra is not None):
+        new_filename = f"{new_filename}-{extra}"
+    new_filename = f"{new_filename}.{ext}"
+
+    return new_filename
+
+def video_device():
+    if ('video_device' in config['default']):
+        return config['default']['video_device']
+    return None
+
+def video_dir(raw = False, archive = False):
+    dir = f'{scremeter_dir(archive = archive)}/audio'
+    if (raw is True): dir = dir + '-raw'
+
+    if (os.path.exists(dir) is False):
+        os.makedirs(dir, exist_ok = True)
+    return dir
 
 def writeCache():
     global cache
@@ -137,11 +172,6 @@ def wav_dir():
     if (os.path.exists(dir) is False):
         os.makedirs(dir, exist_ok = True)
     return dir
-
-def video_device():
-    if ('video_device' in config['default']):
-        return config['default']['video_device']
-    return None
 
 config = minorimpact.config.getConfig(script_name = 'scremeter')
 cache = None
