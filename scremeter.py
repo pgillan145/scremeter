@@ -53,11 +53,12 @@ def main():
     audio_frames = []
     video_frames = []
     audio_recording_thread = None
-    event = Event()
+    kill = Event()
+
     try:
-        audio_recording_thread = Thread(target=record_audio, name='audio_recording', args=[p, audio_frames, event])
+        audio_recording_thread = Thread(target=record_audio, name='audio_recording', args=[p, audio_frames, kill])
         audio_recording_thread.start()
-        video_recording_thread = Thread(target=record_video, name='video_recording', args=[video_frames, event])
+        video_recording_thread = Thread(target=record_video, name='video_recording', args=[video_frames, kill])
         video_recording_thread.start()
     except:
         sys.exit('Error starting recording threads')
@@ -70,7 +71,7 @@ def main():
         os.remove(trigger_file)
 
     last = datetime.now()
-    while (event.is_set() is False):
+    while (kill.is_set() is False):
         try:
             # just run once a couple of times a second
             time.sleep(.5)
@@ -88,27 +89,27 @@ def main():
 
             if (trigger_time is not None and  trigger_time + timedelta(seconds=post_buffer) > datetime.now()):
                 print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
-            elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now() and len(audio_frames) > 0 and len(video_frames) > 0):
+            elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now() and len(audio_frames) > 0 and len(video_frames) >= len(audio_frames)):
+                print("")
                 frame_count = len(audio_frames)
                 audio_buffer_file = audio_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
-                print(f"\nwriting wav file: {audio_buffer_file}")
+                print(f"writing wav file: {audio_buffer_file}")
                 wf = wave.open(audio_buffer_file, 'wb')
                 wf.setnchannels(channels)
                 wf.setsampwidth(p.get_sample_size(sample_format))
                 wf.setframerate(frequency)
-                for i in range(0, len(audio_frames)):
+                for i in range(frame_count):
                     wf.writeframes(b''.join(audio_frames[i]))
                 wf.close()
 
                 video_buffer_file = video_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + f'.{video_ext}'
-                print(f"\nwriting avi file: {video_buffer_file}")
+                print(f"writing avi file: {video_buffer_file}")
                 codec = cv2.VideoWriter_fourcc(*video_codec)
                 output = cv2.VideoWriter(f'{video_buffer_file}', codec, float(fps), (width, height))
-                x = 1
-                for frames in video_frames[0:frame_count-1]:
+                for i in range(frame_count):
+                    frames = video_frames[i]
                     for frame in expand_frames(frames, fps):
                         output.write(frame)
-                    x = x + 1
                 output.release()
                 trigger_time = None
             else:
@@ -128,9 +129,9 @@ def main():
         except KeyboardInterrupt:
             break
     print("")
-    event.set()
+    kill.set()
 
-def record_audio(p, frames, event):
+def record_audio(p, frames, kill):
     info = p.get_host_api_info_by_index(0)
     numdevices = info.get('deviceCount')
     deviceid = None
@@ -154,7 +155,7 @@ def record_audio(p, frames, event):
 
     if (deviceid is None):
         print("audio recorder couldn't get device id")
-        event.set()
+        kill.set()
         return
 
     print('audio recording: started')
@@ -166,18 +167,18 @@ def record_audio(p, frames, event):
                     input=True,
                     output=False)
 
-    n = datetime.now() + timedelta(seconds=1)
-    while(event.is_set() is False):
+    n = datetime.now().second
+    while(kill.is_set() is False):
         f = []
 
         #for i in range(0, int((frequency / chunk))):
         #    data = stream.read(chunk, False)
         #    f.append(data)
-        while (datetime.now() < n):
+        while (datetime.now().second == n):
             data = stream.read(chunk, False)
             f.append(data)
         frames.append(f)
-        n = datetime.now() + timedelta(seconds=1)
+        n = datetime.now().second
 
     # Stop and close the stream 
     stream.stop_stream()
@@ -186,14 +187,14 @@ def record_audio(p, frames, event):
 
     print('audio recording: stopped')
 
-def record_video(frames, event):
+def record_video(frames, kill):
     deviceid = None
     # TODO: scan usb devices for the corrent deviceid
 
     deviceid = 0
     if (deviceid is None):
         print("video ouldn't get device id")
-        event.set()
+        kill.set()
         return
 
     print('video recording: started')
@@ -207,14 +208,14 @@ def record_video(frames, event):
     cap.set(cv2.CAP_PROP_FPS, fps)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 10)
 
-    n = datetime.now() + timedelta(seconds=1)
-    while(event.is_set() is False):
+    n = datetime.now().second
+    while(kill.is_set() is False):
         f = []
-        while (datetime.now() < n):
+        while (datetime.now().second == n):
             ret, frame = cap.read()
             f.append(frame)
         frames.append(f)
-        n = datetime.now() + timedelta(seconds=1)
+        n = datetime.now().second
         #print(f"frames: {len(frames)}, f: {len(f)}")
 
     # Stop and close the stream 
