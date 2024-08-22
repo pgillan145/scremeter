@@ -194,7 +194,24 @@ def concat(concat_type, filename, files, archive = None):
                 raise Exception("ffmpeg failed")
     elif (concat_type == 'video'):
         # Combine anthing in either audio-raw or audio-processed (I haven't decided which) with the matching entry in video-raw to create a video file with audio.
-        pass
+        print(filename, files, archive)
+        if (filename is not None):
+            print(f"generating {filename}...")
+            if (os.path.exists(filename)):
+                delete(filename)
+            #text_settings = "drawtext=text='%{metadata\\:datetime}':fontsize=45:x=w-tw-20:y=h-th-20:fontcolor=white:box=1:boxcolor=black@.5"
+            #command = ['ffmpeg', '-r','30', '-f','concat', '-safe','0','-i',frame_list_file, '-vf',text_settings, '-c:v', 'libx264', filename]
+            command = ['ffmpeg', '-i', files[0], '-i', files[1], '-c:v','copy', '-c:a', 'aac', filename]
+            done = subprocess.run(command)
+            if (done.returncode == 0):
+                print("ffmpeg completed successfully")
+                if (archive is not None):
+                    print(f"archiving files to {archive}...")
+                    os.makedirs(archive, exist_ok = True)
+                    for file in files:
+                        print(f"moving {file} -> {archive}")
+                        shutil.move(file, archive)
+                        #TODO: tar archive files?
     else:
         raise Exception('invalid concatenation type')
 
@@ -259,6 +276,16 @@ def scan_files(path):
 
         file = consolidated_filename(to_concat[date_hour])
         concat('audio', f"{scremeter.audio_dir()}/{file}", to_concat[date_hour], archive=f"{scremeter.audio_dir(processed=True, archive = True)}/{file_info['header']}-{date_hour}")
+
+    # Video
+    audio_files = minorimpact.readdir(f'{scremeter.audio_dir(raw = True)}')
+
+    for audio_file in sorted(audio_files):
+        audio_file_info = scremeter.parse_filename(audio_file)
+        test_video_file = scremeter.video_dir(raw = True) + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'avi')
+        if (os.path.exists(test_video_file)):
+            print(f"combining {audio_file} and {test_video_file}")
+            concat('video', scremeter.video_dir() + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'mp4'), [audio_file, test_video_file] , archive=f"{scremeter.video_dir(raw = True, archive = True)}")
 
 def makeDateHour(date = None, file = None, inc_minute = False):
     if (file is not None):

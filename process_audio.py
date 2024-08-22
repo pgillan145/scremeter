@@ -191,7 +191,7 @@ def main():
 
         # TODO: See if the corresponding video file exists. If it does, then ignore this audio file, it needs to be bonded
         #   with that video file.
-        #matching_video_file = video_dir + '/' + scremeter.unparse_filename(file_info, 'mp4')
+        #matching_video_file = video_dir + '/' + scremeter.unparse_file_info(file_info, 'mp4')
         #print(f"matching_video_file:{matching_video_file}")
 
         date_hour = file_info['year'] + file_info['month'] + file_info['day'] + file_info['hour']

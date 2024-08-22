@@ -154,10 +154,14 @@ def turnWriteCacheOff():
     global use_cache
     use_cache = False
 
-def unparse_filename(file_info, ext, extra = None):
-    new_filename = f"{file_info['header']}-{file_info['header']}-{file_info['header']}-{file_info['header']}-{file_info['header']}_{file_info['header']}_{file_info['header']}"
+def unparse_file_info(file_info, ext=None, extra = None):
+    new_filename = f"{file_info['header']}-{file_info['year']}-{file_info['month']}-{file_info['day']}-{file_info['hour']}_{file_info['minute']}_{file_info['second']}"
     if (extra is not None):
         new_filename = f"{new_filename}-{extra}"
+    if (ext is None and 'ext' in file_info):
+        ext = file_info['ext']
+    elif (ext is None):
+        raise Exception('file extension is not defined')
     new_filename = f"{new_filename}.{ext}"
 
     return new_filename
