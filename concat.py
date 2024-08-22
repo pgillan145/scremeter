@@ -278,12 +278,16 @@ def scan_files(path):
         concat('audio', f"{scremeter.audio_dir()}/{file}", to_concat[date_hour], archive=f"{scremeter.audio_dir(processed=True, archive = True)}/{file_info['header']}-{date_hour}")
 
     # Video
+    # Pull '.wav' files from both the raw audio directory and the raw video directory, but only fuck with files that have a matching '.avi' in the video-raw
+    #   directory.
     audio_files = minorimpact.readdir(f'{scremeter.audio_dir(raw = True)}')
-
+    audio_files = audio_files + list(filter(lambda x:re.search('\\.wav$', x), minorimpact.readdir(f'{scremeter.video_dir(raw = True)}')))
+    
     for audio_file in sorted(audio_files):
         audio_file_info = scremeter.parse_filename(audio_file)
         test_video_file = scremeter.video_dir(raw = True) + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'avi')
         if (os.path.exists(test_video_file)):
+            # TODO: cleanup items in the video-raw directory that didn't have a mate.
             print(f"combining {audio_file} and {test_video_file}")
             concat('video', scremeter.video_dir() + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'mp4'), [audio_file, test_video_file] , archive=f"{scremeter.video_dir(raw = True, archive = True)}")
 

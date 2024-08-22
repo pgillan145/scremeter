@@ -18,14 +18,18 @@ post_buffer = scremeter.post_buffer()
 # audio variables
 chunk = 256  # How large each chunk of data we record will be. Larger values seem to come out crackly.
 sample_format = pyaudio.paInt24  # 24 bits per sample
-device_match_string = scremeter.audio_device()
+audio_device_match_string = scremeter.audio_device()
 channels = 1
 frequency = 44100  # Record at 44100 samples per second
-audio_base_filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() + "-"
+#   goes into a separate directory.
+audio_base_filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() + '-'
 
 # timelapse/video variables
-timelapse_base_filename = f"{scremeter.timelapse_dir(raw = True)}/{scremeter.title()}-"
-video_base_filename = f"{scremeter.video_dir(raw = True)}/{scremeter.title()}-"
+video_device_match_string = scremeter.video_device()
+if (video_device is not None):
+    audio_base_filename = scremeter.video_dir(raw = True) + '/' + scremeter.title() + '-'
+timelapse_base_filename = f'{scremeter.timelapse_dir(raw = True)}/{scremeter.title()}-'
+video_base_filename = f'{scremeter.video_dir(raw = True)}/{scremeter.title()}-'
 video_codec = 'MJPG'
 video_ext = 'avi'
 width = 1920
@@ -103,7 +107,7 @@ def main():
                 wf.close()
 
                 video_buffer_file = video_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + f'.{video_ext}'
-                print(f"writing avi file: {video_buffer_file}")
+                print(f"writing avi file: {video_buffer_file}...")
                 codec = cv2.VideoWriter_fourcc(*video_codec)
                 output = cv2.VideoWriter(f'{video_buffer_file}', codec, float(fps), (width, height))
                 for i in range(frame_count):
@@ -111,6 +115,7 @@ def main():
                     for frame in expand_frames(frames, fps):
                         output.write(frame)
                 output.release()
+                print("...done")
                 trigger_time = None
             else:
                 if (len(video_frames) > 0 and len(video_frames[0]) > 0 and len(audio_frames) > 0 and len(audio_frames[0]) > 0):
@@ -120,7 +125,7 @@ def main():
 
             # Every second pull the earliest frame of video and write it to a file.
             if (last + timedelta(seconds = 1) < datetime.now() and len(video_frames) > 0 and len(video_frames[0]) > 0):
-                frame = video_frames[0][0]
+                frame = video_frames[-1][0]
                 hms = last.strftime('%Y-%m-%d-%H_%M_%S')
                 #print(f"{timelapse_base_filename}{hms}.jpg")
                 cv2.imwrite(f'{timelapse_base_filename}{hms}.jpg', frame)
@@ -144,12 +149,12 @@ def record_audio(p, frames, kill):
             #print(float(frequency), i, channels, sample_format)
             #if (p.is_format_supported(float(frequency), input_device=i, input_channels=channels, input_format=sample_format)):
             #    print("SUPPORTED")
-            #    if (re.match(device_match_string, name) and deviceid is None):
+            #    if (re.match(audio_device_match_string, name) and deviceid is None):
             #        deviceid = i
             #        print("Using ", name)
             #else:
             #    print("UNSUPPORTED")
-            if (re.match(device_match_string, name) and deviceid is None):
+            if (re.match(audio_audio_device_match_string, name) and deviceid is None):
                 deviceid = i
                 print("audio using ", name)
 
