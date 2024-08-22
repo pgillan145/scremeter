@@ -61,15 +61,22 @@ def get_cache(clear_cache = False):
     return cache
 
 def mp3_dir():
-    return audio_dir()
+    return f'{audio_dir()}-mp3'
 
 def mp4_dir():
     return f'{audio_dir()}-mp4'
 
 def parse_filename(file):
     # TODO: Grab extension and extra stuff after the datetime so we have enough info to turn this back into the original filename.
+    file_info = {}
     basename = os.path.basename(file)
-    m = re.search("^(.+)-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-(\\d\\d)_(\\d\\d)_(\\d\\d)", basename)
+        #'^(?P<series>.+) (?P<issue>-\d+[^ ]*) \[(?P<year>\d\d\d\d)(?P<month>\d\d)(?P<day>\d\d)\]\.(?P<extension>cb[rz])$',
+        #m = re.search(f, description)
+        #if (m is not None):
+        #    g = m.groupdict()
+        #    if 'description' in g: description = g['description']
+
+    m = re.search("^(.+)-(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-(\\d\\d)_(\\d\\d)_(\\d\\d)[^.]*\\.([^.]+)$", basename)
     if (m is not None):
         header = m[1]
         year = m[2]
@@ -78,8 +85,20 @@ def parse_filename(file):
         hour = m[5]
         minute = m[6]
         second = m[7]
-        return { 'header':header, 'year':year, 'month':month, 'day':day, 'hour':hour, 'minute':minute, 'second':second }
-    raise Exception(f"invalid filename: {basename}")
+        extension = m[8]
+        file_info['header'] = header
+        file_info['year'] = year
+        file_info['month'] = month
+        file_info['day'] = day
+        file_info['hour'] = hour
+        file_info['minute'] = minute
+        file_info['second'] = second
+        file_info['extension'] = extension
+
+
+    if ('header' not in file_info):
+        raise Exception(f"invalid filename: {basename}")
+    return file_info
 
 def post_buffer():
     return int(config['default']['post_buffer'])
@@ -149,7 +168,7 @@ def video_device():
     return None
 
 def video_dir(raw = False, archive = False):
-    dir = f'{scremeter_dir(archive = archive)}/audio'
+    dir = f'{scremeter_dir(archive = archive)}/video'
     if (raw is True): dir = dir + '-raw'
 
     if (os.path.exists(dir) is False):
@@ -168,7 +187,7 @@ def writeCache():
         minorimpact.write_cache(c_file, cache)
 
 def wav_dir():
-    dir = f'{audio_dir()}-wav'
+    dir = f'{audio_dir()}'
     if (os.path.exists(dir) is False):
         os.makedirs(dir, exist_ok = True)
     return dir

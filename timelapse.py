@@ -12,7 +12,7 @@ scremeter.turnWriteCacheOff()
 
 def main():
     codec = cv2.VideoWriter_fourcc(*'MJPG')
-    ext = 'avi'
+    #ext = 'avi'
 
     width = 1920
     height = 1080
@@ -50,6 +50,6 @@ def main():
     cv2.destroyAllWindows()
 
     print("")
-
+#
 
 main()

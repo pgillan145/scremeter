@@ -20,6 +20,41 @@ import sys
 
 cache = {}
 
+def consolidated_filename(files, ext=None, seconds = True):
+    default_header = 'consolidated'
+    start = None
+    end = None
+
+    date = None
+    hour = None
+    if (len(files) == 0):
+        raise Exception("no files to parse")
+
+    for file in sorted(files):
+        basename = os.path.basename(file)
+        file_info = scremeter.parse_filename(file)
+        if (ext is None):
+            ext = file_info['extension']
+        if (date is None):
+            date = f"{file_info['year']}-{file_info['month']}-{file_info['day']}-{file_info['hour']}"
+            hour = file_info['hour']
+
+        file_date = f"{file_info['year']}-{file_info['month']}-{file_info['day']}-{file_info['hour']}"
+
+        if (default_header == 'consolidated'):
+            default_header = file_info['header']
+
+        minute = file_info['minute']
+        second = file_info['second']
+        if (start is None):
+            start = f'_{minute}'
+            if (seconds is True): start = f'{start}_{second}'
+        end = f'_{minute}'
+        if (seconds is True): end = f'{end}_{second}'
+
+    name = default_header + '-' + date + start + '-' + hour + end + f".{ext}"
+    return name
+
 def concat(concat_type, filename, files, archive = None):
     if (len(files) == 0):
         return
@@ -78,11 +113,11 @@ def concat(concat_type, filename, files, archive = None):
             if (i < len(files) and beep is not None):
                 consolidated_data = numpy.append(consolidated_data, beep_data)
 
-        wav_dir = scremeter.wav_dir()
+        wav_dir = scremeter.audio_dir()
         wav_file = wav_dir + '/' + name + '.wav'
         wavfile.write(wav_file, anchor_rate, consolidated_data)
 
-        mp3_dir = scremeter.audio_dir()
+        mp3_dir = scremeter.mp3_dir()
         if (mp3_dir is not None):
             mp3_file = mp3_dir + '/' + name + '.mp3'
 
@@ -186,7 +221,10 @@ def scan_files(path):
         if (len(to_concat[date_hour]) == 0):
             continue
         file_info = scremeter.parse_filename(to_concat[date_hour][0])
-        concat('timelapse', f"{scremeter.timelapse_dir()}/{file_info['header']}_{date_hour}.mp4", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw=True, archive = True)}/{file_info['header']}-{date_hour}")
+        file = consolidated_filename(to_concat[date_hour], 'mp4')
+        archive_dir = re.sub('.mp4$', '', file)
+        #concat('timelapse', f"{scremeter.timelapse_dir()}/{file_info['header']}_{date_hour}.mp4", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw=True, archive = True)}/{file_info['header']}-{date_hour}")
+        concat('timelapse', f"{scremeter.timelapse_dir()}/{file}", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw = True, archive = True)}/{archive_dir}")
 
     # Audio
     files = minorimpact.readdir(f'{scremeter.audio_dir(processed = True)}')
@@ -219,10 +257,8 @@ def scan_files(path):
         for file in to_concat[date_hour]:
             print(file)
 
-        file = to_concat[date_hour][0]
-        file_info = scremeter.parse_filename(file)
-        concat('audio', f"{scremeter.audio_dir()}/{file_info['header']}_{date_hour}.mp3", to_concat[date_hour], archive=f"{scremeter.audio_dir(processed=True, archive = True)}/{file_info['header']}-{date_hour}")
-
+        file = consolidated_filename(to_concat[date_hour])
+        concat('audio', f"{scremeter.audio_dir()}/{file}", to_concat[date_hour], archive=f"{scremeter.audio_dir(processed=True, archive = True)}/{file_info['header']}-{date_hour}")
 
 def makeDateHour(date = None, file = None, inc_minute = False):
     if (file is not None):

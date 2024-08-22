@@ -212,6 +212,11 @@ def main():
         file_info = scremeter.parse_filename(file)
         date_hour = file_info['year'] + file_info['month'] + file_info['day'] + file_info['hour']
 
+
+        # TODO: See if the corresponding video file exists. If it does, then ignore this audio file, it needs to be bonded
+        #   with that video file.
+        #   - OR -
+        #   adf files to the date hour log like we do in concat, and then just run this loop on those files.
         md5 = minorimpact.md5dir(file)
         #processed_basename = f"{header}-{date}-processed.wav"
         #processed_file = processed_filename(file)

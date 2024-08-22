@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import cv2
 from datetime import datetime,timedelta
 import pyaudio
 import os
+import random
 import re
 import scremeter
 import sys
@@ -10,18 +12,41 @@ import time
 from threading import Thread, Event
 import wave
 
+pre_buffer = scremeter.pre_buffer()
+post_buffer = scremeter.post_buffer()
+
+# audio variables
 chunk = 256  # How large each chunk of data we record will be. Larger values seem to come out crackly.
 sample_format = pyaudio.paInt24  # 24 bits per sample
 device_match_string = scremeter.audio_device()
 channels = 1
 frequency = 44100  # Record at 44100 samples per second
-pre_buffer = scremeter.pre_buffer()
-post_buffer = scremeter.post_buffer()
-audio_filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() + "-"
-stop_recording = False
+audio_base_filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() + "-"
 
+# timelapse/video variables
+timelapse_base_filename = f"{scremeter.timelapse_dir(raw = True)}/{scremeter.title()}-"
+video_base_filename = f"{scremeter.video_dir(raw = True)}/{scremeter.title()}-"
+video_codec = 'MJPG'
+video_ext = 'avi'
+width = 1920
+height = 1080
+fps = 24
+
+random.seed()
 scremeter.turnWriteCacheOff()
 
+def expand_frames(frames, fps):
+    new_frames = frames.copy()
+    while (len(new_frames) < fps):
+        rand = random.randrange(len(new_frames)-1)
+        new_frames.insert(rand, new_frames[rand])
+
+    while (len(new_frames) > fps):
+        rand = random.randrange(len(new_frames)-1)
+        del new_frames[rand]
+
+    return new_frames
+    
 def main():
     p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
@@ -30,12 +55,13 @@ def main():
     audio_recording_thread = None
     event = Event()
     try:
-        audio_recording_thread = Thread(target=record_audio, name='recording', args=[p, audio_frames, event])
+        audio_recording_thread = Thread(target=record_audio, name='audio_recording', args=[p, audio_frames, event])
         audio_recording_thread.start()
+        video_recording_thread = Thread(target=record_video, name='video_recording', args=[video_frames, event])
+        video_recording_thread.start()
     except:
-        sys.exit('Error starting recording thread')
+        sys.exit('Error starting recording threads')
 
-    buffer_frames = []
     trigger_time = None
 
     # delete the trigger file, if there's still an old one hanging around
@@ -43,6 +69,7 @@ def main():
     if (os.path.exists(trigger_file)):
         os.remove(trigger_file)
 
+    last = datetime.now()
     while (event.is_set() is False):
         try:
             # just run once a couple of times a second
@@ -54,31 +81,54 @@ def main():
                 trigger_time = t
 
             if (trigger_time is None):
-                while (len(audio_frames) > pre_buffer):
+                while (len(audio_frames) > pre_buffer or len(audio_frames) > len(video_frames)):
                     del audio_frames[0]
+                while (len(video_frames) > pre_buffer or len(video_frames) > len(audio_frames)):
+                    del video_frames[0]
 
             if (trigger_time is not None and  trigger_time + timedelta(seconds=post_buffer) > datetime.now()):
-                print(f"\raudio buffer length: {len(audio_frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
-            elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now()):
-                if (len(audio_frames) > 0):
-                    audio_buffer_file = audio_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
-                    print(f"\nwriting wav file: {audio_buffer_file}")
-                    wf = wave.open(audio_buffer_file, 'wb')
-                    wf.setnchannels(channels)
-                    wf.setsampwidth(p.get_sample_size(sample_format))
-                    wf.setframerate(frequency)
-                    for i in range(0, len(audio_frames)):
-                        wf.writeframes(b''.join(audio_frames[i]))
-                    wf.close()
-                    trigger_time = None
+                print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
+            elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now() and len(audio_frames) > 0 and len(video_frames) > 0):
+                frame_count = len(audio_frames)
+                audio_buffer_file = audio_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
+                print(f"\nwriting wav file: {audio_buffer_file}")
+                wf = wave.open(audio_buffer_file, 'wb')
+                wf.setnchannels(channels)
+                wf.setsampwidth(p.get_sample_size(sample_format))
+                wf.setframerate(frequency)
+                for i in range(0, len(audio_frames)):
+                    wf.writeframes(b''.join(audio_frames[i]))
+                wf.close()
+
+                video_buffer_file = video_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + f'.{video_ext}'
+                print(f"\nwriting avi file: {video_buffer_file}")
+                codec = cv2.VideoWriter_fourcc(*video_codec)
+                output = cv2.VideoWriter(f'{video_buffer_file}', codec, float(fps), (width, height))
+                x = 1
+                for frames in video_frames[0:frame_count-1]:
+                    for frame in expand_frames(frames, fps):
+                        output.write(frame)
+                    x = x + 1
+                output.release()
+                trigger_time = None
             else:
-                print(f"\raudio buffer length: {len(audio_frames)}s", end='')
+                if (len(video_frames) > 0 and len(video_frames[0]) > 0 and len(audio_frames) > 0 and len(audio_frames[0]) > 0):
+                    print(f"\rbuffer length: a:{len(audio_frames)}s({len(audio_frames[0])})/v:{len(video_frames)}s({len(video_frames[0])})", end='')
+                else:
+                    print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s", end='')
+
+            # Every second pull the earliest frame of video and write it to a file.
+            if (last + timedelta(seconds = 1) < datetime.now() and len(video_frames) > 0 and len(video_frames[0]) > 0):
+                frame = video_frames[0][0]
+                hms = last.strftime('%Y-%m-%d-%H_%M_%S')
+                #print(f"{timelapse_base_filename}{hms}.jpg")
+                cv2.imwrite(f'{timelapse_base_filename}{hms}.jpg', frame)
+                last = datetime.now()
 
         except KeyboardInterrupt:
             break
     print("")
     event.set()
-
 
 def record_audio(p, frames, event):
     info = p.get_host_api_info_by_index(0)
@@ -89,7 +139,7 @@ def record_audio(p, frames, event):
         if (p.get_device_info_by_host_api_device_index(0, i).get('maxInputChannels')) > 0:
             devinfo = p.get_device_info_by_host_api_device_index(0, i)
             name = devinfo.get('name')
-            print("Input Device id ", i, " - ", name)
+            print("audio input Device id ", i, " - ", name)
             #print(float(frequency), i, channels, sample_format)
             #if (p.is_format_supported(float(frequency), input_device=i, input_channels=channels, input_format=sample_format)):
             #    print("SUPPORTED")
@@ -100,14 +150,14 @@ def record_audio(p, frames, event):
             #    print("UNSUPPORTED")
             if (re.match(device_match_string, name) and deviceid is None):
                 deviceid = i
-                print("Using ", name)
+                print("audio using ", name)
 
     if (deviceid is None):
-        print("Couldn't get device id")
+        print("audio recorder couldn't get device id")
         event.set()
         return
 
-    print('Recording: started')
+    print('audio recording: started')
     stream = p.open(format=sample_format,
                     channels=channels,
                     rate=frequency,
@@ -116,19 +166,61 @@ def record_audio(p, frames, event):
                     input=True,
                     output=False)
 
+    n = datetime.now() + timedelta(seconds=1)
     while(event.is_set() is False):
         f = []
-        for i in range(0, int((frequency / chunk))):
+
+        #for i in range(0, int((frequency / chunk))):
+        #    data = stream.read(chunk, False)
+        #    f.append(data)
+        while (datetime.now() < n):
             data = stream.read(chunk, False)
             f.append(data)
         frames.append(f)
+        n = datetime.now() + timedelta(seconds=1)
 
     # Stop and close the stream 
     stream.stop_stream()
     stream.close()
     p.terminate()
 
-    print('Recording: stopped')
+    print('audio recording: stopped')
+
+def record_video(frames, event):
+    deviceid = None
+    # TODO: scan usb devices for the corrent deviceid
+
+    deviceid = 0
+    if (deviceid is None):
+        print("video ouldn't get device id")
+        event.set()
+        return
+
+    print('video recording: started')
+    # setup 
+
+    cap = cv2.VideoCapture(deviceid)
+    codec = cv2.VideoWriter_fourcc(*video_codec)
+    cap.set(cv2.CAP_PROP_FOURCC, codec)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    cap.set(cv2.CAP_PROP_FPS, fps)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 10)
+
+    n = datetime.now() + timedelta(seconds=1)
+    while(event.is_set() is False):
+        f = []
+        while (datetime.now() < n):
+            ret, frame = cap.read()
+            f.append(frame)
+        frames.append(f)
+        n = datetime.now() + timedelta(seconds=1)
+        #print(f"frames: {len(frames)}, f: {len(f)}")
+
+    # Stop and close the stream 
+    cap.release()
+    cv2.destroyAllWindows()
+    print('video recording: stopped')
 
 def trigger():
     """Return a time if a recording trigger is detected. For now, this just look for a certain file defined in the 'scremeter' library to appear."""
