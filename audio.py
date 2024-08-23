@@ -122,7 +122,7 @@ def record(p, frames, event):
             f.append(data)
         frames.append(f)
 
-    # Stop and close the stream 
+    # Stop and close the stream
     stream.stop_stream()
     stream.close()
     p.terminate()

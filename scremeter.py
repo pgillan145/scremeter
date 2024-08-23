@@ -26,7 +26,8 @@ audio_base_filename = scremeter.audio_dir(raw = True) + '/' + scremeter.title() 
 
 # timelapse/video variables
 video_device_match_string = scremeter.video_device()
-if (video_device is not None):
+print(f"VIDEO:{video_device_match_string}")
+if (video_device_match_string is not None):
     audio_base_filename = scremeter.video_dir(raw = True) + '/' + scremeter.title() + '-'
 timelapse_base_filename = f'{scremeter.timelapse_dir(raw = True)}/{scremeter.title()}-'
 video_base_filename = f'{scremeter.video_dir(raw = True)}/{scremeter.title()}-'
@@ -50,7 +51,7 @@ def expand_frames(frames, fps):
         del new_frames[rand]
 
     return new_frames
-    
+
 def main():
     p = pyaudio.PyAudio()  # Create an interface to PortAudio
 
@@ -154,7 +155,7 @@ def record_audio(p, frames, kill):
             #        print("Using ", name)
             #else:
             #    print("UNSUPPORTED")
-            if (re.match(audio_audio_device_match_string, name) and deviceid is None):
+            if (re.match(audio_device_match_string, name) and deviceid is None):
                 deviceid = i
                 print("audio using ", name)
 
@@ -185,7 +186,7 @@ def record_audio(p, frames, kill):
         frames.append(f)
         n = datetime.now().second
 
-    # Stop and close the stream 
+    # Stop and close the stream
     stream.stop_stream()
     stream.close()
     p.terminate()
@@ -203,7 +204,7 @@ def record_video(frames, kill):
         return
 
     print('video recording: started')
-    # setup 
+    # setup
 
     cap = cv2.VideoCapture(deviceid)
     codec = cv2.VideoWriter_fourcc(*video_codec)
@@ -223,7 +224,7 @@ def record_video(frames, kill):
         n = datetime.now().second
         #print(f"frames: {len(frames)}, f: {len(f)}")
 
-    # Stop and close the stream 
+    # Stop and close the stream
     cap.release()
     cv2.destroyAllWindows()
     print('video recording: stopped')

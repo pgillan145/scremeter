@@ -26,7 +26,7 @@ def main():
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     #output = cv2.VideoWriter(f'./cam_video.{ext}', codec, float(fps), (width, height))
-    
+
     base_path = f"{scremeter.timelapse_dir(raw = True)}/{scremeter.title()}"
 
     last = datetime.now()

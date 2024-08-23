@@ -201,7 +201,13 @@ def concat(concat_type, filename, files, archive = None):
                 delete(filename)
             #text_settings = "drawtext=text='%{metadata\\:datetime}':fontsize=45:x=w-tw-20:y=h-th-20:fontcolor=white:box=1:boxcolor=black@.5"
             #command = ['ffmpeg', '-r','30', '-f','concat', '-safe','0','-i',frame_list_file, '-vf',text_settings, '-c:v', 'libx264', filename]
-            command = ['ffmpeg', '-i', files[0], '-i', files[1], '-c:v','copy', '-c:a', 'aac', filename]
+
+            # TODO: Test which one of files is the video file and which one is the audio file
+            audio_file = scremeter.process_audio_file(files[0])
+            video_file = files[1]
+
+            #concat('video', scremeter.video_dir() + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'mp4'), [processed_audio_file, test_video_file] , archive=f"{scremeter.video_dir(raw = True, archive = True)}")
+            command = ['ffmpeg', '-i', audio_file, '-i', video_file, '-c:v','copy', '-c:a', 'aac', filename]
             done = subprocess.run(command)
             if (done.returncode == 0):
                 print("ffmpeg completed successfully")
@@ -221,7 +227,7 @@ def scan_files(path):
 
     # Timelapse
     files = minorimpact.readdir(f'{scremeter.timelapse_dir(raw = True)}')
-    
+
     to_concat = {}
     for file in sorted(files):
         file_date_hour = makeDateHour(file=file)
@@ -246,7 +252,7 @@ def scan_files(path):
     # Audio
     files = minorimpact.readdir(f'{scremeter.audio_dir(processed = True)}')
     raw_files = minorimpact.readdir(f'{scremeter.audio_dir(raw = True)}')
-    
+
     # Make a list of unprocessed blocks to ignore.
     to_ignore = []
     for file in sorted(raw_files):
@@ -282,7 +288,7 @@ def scan_files(path):
     #   directory.
     audio_files = minorimpact.readdir(f'{scremeter.audio_dir(raw = True)}')
     audio_files = audio_files + list(filter(lambda x:re.search('\\.wav$', x), minorimpact.readdir(f'{scremeter.video_dir(raw = True)}')))
-    
+
     for audio_file in sorted(audio_files):
         audio_file_info = scremeter.parse_filename(audio_file)
         test_video_file = scremeter.video_dir(raw = True) + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'avi')

@@ -221,6 +221,8 @@ def main():
         #processed_basename = f"{header}-{date}-processed.wav"
         #processed_file = processed_filename(file)
         #archive_file = archived_filename(file)
+
+        # TODO: scremeter.process_audio_file(), verbose = True, trim_to_peaks = True
         tmp_file = process_file(file)
 
         """
@@ -279,6 +281,7 @@ def main():
                 crop_end = 0
                 peak_start_override = 0
                 peak_end_override = 0
+                # TODO: scremeter.process_audio_file(), verbose = True, trim_to_peaks = True
                 tmp_file = process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
                 crop_side = 'start'
                 while(True):
@@ -312,6 +315,7 @@ def main():
                             elif (crop_side == 'end'):
                                 crop_end += 1
 
+                        # TODO: scremeter.process_audio_file(), verbose = True, trim_to_peaks = True
                         process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
                     elif (c == '+' or c == '='):
                         if (crop_mode == 'peak'):
@@ -328,6 +332,7 @@ def main():
                                 crop_end -= 1
                                 if (crop_end < 0): crop_end = 0
 
+                        # TODO: scremeter.process_audio_file(), verbose = True, trim_to_peaks = True
                         tmp_file = process_file(file, crop_start = crop_start, peak_start_override = peak_start_override, crop_end = crop_end, peak_end_override = peak_end_override)
             elif (c == 'd'):
                 c = minorimpact.getChar(default='', end='\n', prompt="again, please ", echo=True).lower()

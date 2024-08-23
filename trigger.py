@@ -19,7 +19,7 @@ def main():
         with(open(trigger_file, 'w') as t):
             t.write("NOW")
         sys.exit()
-    
+
     while (True):
         c = minorimpact.getChar(default='y', end='\n', prompt="trigger scremeter? (Y/n) ", echo=True).lower()
         if (c == 'y'):
