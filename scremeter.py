@@ -65,6 +65,8 @@ def main():
         audio_recording_thread.start()
         video_recording_thread = Thread(target=record_video, name='video_recording', args=[video_frames, kill])
         video_recording_thread.start()
+        timelapse_recording_thread = Thread(target=record_timelapse, name='timelapse_recording', args=[video_frames, kill])
+        timelapse_recording_thread.start()
     except:
         sys.exit('Error starting recording threads')
 
@@ -123,14 +125,6 @@ def main():
                     print(f"\rbuffer length: a:{len(audio_frames)}s({len(audio_frames[0])})/v:{len(video_frames)}s({len(video_frames[0])})", end='')
                 else:
                     print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s", end='')
-
-            # Every second pull the earliest frame of video and write it to a file.
-            if (last + timedelta(seconds = 1) < datetime.now() and len(video_frames) > 0 and len(video_frames[0]) > 0):
-                frame = video_frames[-1][0]
-                hms = last.strftime('%Y-%m-%d-%H_%M_%S')
-                #print(f"{timelapse_base_filename}{hms}.jpg")
-                cv2.imwrite(f'{timelapse_base_filename}{hms}.jpg', frame)
-                last = datetime.now()
 
         except KeyboardInterrupt:
             break
@@ -192,6 +186,19 @@ def record_audio(p, frames, kill):
     p.terminate()
 
     print('audio recording: stopped')
+
+def record_timelapse(frames, kill):
+    print('timelapse recording: started')
+    n = datetime.now().second
+    while(kill.is_set() is False):
+        # Every second pull the earliest frame of video and write it to a file.
+        time.sleep(.5)
+        if (datetime.now().second != n and len(frames) > 0 and len(frames[0]) > 0):
+            frame = frames[-1][0]
+            hms = datetime.now().strftime('%Y-%m-%d-%H_%M_%S')
+            cv2.imwrite(f'{timelapse_base_filename}{hms}.jpg', frame)
+            n = datetime.now().second
+    print('timelapse recording: stopped')
 
 def record_video(frames, kill):
     deviceid = None

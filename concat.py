@@ -190,6 +190,9 @@ def concat(concat_type, filename, files, archive = None):
                         #print(f"moving {file} -> {archive_file}")
                         shutil.move(file, archive_file)
                         #TODO: tar archive files?
+                    print(f"creating {archive}.tar'")
+                    shutil.make_archive(archive, 'tar', root_dir = archive)
+                    shutil.rmtree(archive)
             else:
                 raise Exception("ffmpeg failed")
     elif (concat_type == 'video'):
