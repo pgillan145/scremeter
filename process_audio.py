@@ -38,118 +38,6 @@ def audio_length(file):
     seconds = data.shape[0]/rate
     return seconds
 
-def consolidate(date_hour, force = False):
-    print(f"CONS {date_hour}")
-
-    consolidate = []
-    consolidated_header = 'consolidated'
-    start = None
-    end = None
-    m = re.search("(\\d\\d\\d\\d)(\\d\\d)(\\d\\d)(\\d\\d)", date_hour)
-    if (m is None):
-        raise Exception(f"invalid date_hour:{date_hour}")
-
-    date = f"{m[1]}-{m[2]}-{m[3]}-{m[4]}"
-    hour = m[4]
-    files = minorimpact.readdir(raw_dir)
-    for file in sorted(files):
-        #print(file)
-        basename = os.path.basename(file)
-        m = re.search("^(.+)-(\\d\\d\\d\\d-\\d\\d-\\d\\d-\\d\\d_\\d\\d_\\d\\d)", basename)
-        if (m is None):
-            continue
-
-        header = m[1]
-        file_date = m[2]
-        if (consolidated_header == 'consolidated'):
-            consolidated_header = header
-
-        if (re.search(date, file)):
-            minute = re.sub(date, '', file_date)
-            if (start is None):
-                start = minute
-            end = minute
-            consolidate.append(file)
-
-    if (len(consolidate) == 0):
-        return
-
-    wav_file = wav_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.wav'
-    mp3_file = None
-    mp4_file = None
-    mp4_title = consolidated_header
-
-    if (mp3_dir is not None):
-        mp3_file = mp3_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp3'
-
-    if (mp4_dir is not None):
-        mp4_file = mp4_dir + '/' + consolidated_header + '-' + date + start + '-' + hour + end + '.mp4'
-        t = date + start + ' to ' + date + end
-        t = re.sub('(\\d\\d\\d\\d)-(\\d\\d)-(\\d\\d)-','\\g<1>\\/\\g<2>\\/\\g<3> ', t)
-        t = re.sub('_', '\\\\\\:',t)
-
-        mp4_title = mp4_title + '\n' + t + '\n' + str(len(consolidate)) + ' event'
-        print(mp4_title)
-        if (len(consolidate) > 1): mp4_title = mp4_title + 's'
-
-    anchor_rate, d = wavfile.read(consolidate[0])
-    beep = scremeter.beep()
-    if (beep is not None):
-        beep_rate, beep_data = wavfile.read(beep)
-
-    consolidated_data = None
-    i = 0
-    for file in consolidate:
-        processed_file = processed_filename(file)
-        if (os.path.exists(processed_file) is False):
-            raise Exception(f"{processed_file} doesn't exist")
-
-        #print(file)
-        #print(processed_file)
-        rate, data = wavfile.read(processed_file)
-        if (anchor_rate is None):
-            anchor_rate = rate
-        elif (anchor_rate != rate):
-            raise Exception(f"{file} rate is {rate}, should be {anchor_rate}")
-
-        if (consolidated_data is None):
-            consolidated_data = data
-        else:
-            consolidated_data = numpy.append(consolidated_data, data)
-        i = i + 1
-        if (i < len(consolidate) and beep is not None):
-            consolidated_data = numpy.append(consolidated_data, beep_data)
-
-
-    wavfile.write(wav_file, anchor_rate, consolidated_data)
-
-    if (mp3_file is not None):
-        print(f"generating {mp3_file}")
-        if (os.path.exists(mp3_file)):
-            delete(mp3_file)
-        command = ['ffmpeg', '-i', wav_file, mp3_file]
-        subprocess.run(command)
-
-    if (mp4_file is not None):
-        print(f"generating {mp4_file}")
-        if (os.path.exists(mp4_file)):
-            delete(mp4_file)
-        base = os.path.basename(mp4_file)
-        if (mp4_title is None):
-            mp4_title = base
-        command = ['ffmpeg', '-f', 'lavfi', '-i', 'color=c=blue:s=1280x720', '-i', wav_file, '-vf', f'drawtext=fontfile=/path/to/font.ttf:text={mp4_title}:fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2', '-shortest', '-fflags', '+shortest', mp4_file]
-        subprocess.run(command)
-
-    for file in consolidate:
-        basename = os.path.basename(file)
-        archive_file = archive_dir + '/' + basename
-        processed_file = processed_filename(file)
-
-        # moved the processed files into the archive directory and remove the "processed" files
-        shutil.move(file, archive_file)
-        shutil.move(processed_file, processed_archive_dir)
-        del(cache['files'][file])
-
 def delete(file):
     #print(f"deleting {file}")
     if (os.path.exists(file)):
@@ -162,7 +50,6 @@ def main():
     parser.add_argument('--clear_cache', help = "clear the processing cache and reevaluate everything", action='store_true')
     parser.add_argument('-e', '--edits', help = "show files that need to be edited", action='store_true')
     parser.add_argument('-f', '--flagged', help = "show flagged files", action='store_true')
-    parser.add_argument('--force', help = "consolidate all processed items even if we're still in the current hour", action='store_true')
     parser.add_argument('-r', '--reprocess', help = "reduce files even if they already exist", action='store_true')
     parser.add_argument('-v', '--verbose', help = "Verbose output", action='store_true')
     args = parser.parse_args()
@@ -375,11 +262,6 @@ def main():
                 sys.exit()
 
         current_date_hour = datetime.now().strftime("%Y%m%d%H")
-
-        # once every file for this hour has been marked 'keep', consolidate the hour
-        #if (date_hour_log[date_hour] == 0):
-        #    if (date_hour != current_date_hour or args.force is True):
-        #        consolidate(date_hour)
 
     minorimpact.write_cache(scremeter.cache_file(), cache)
 
