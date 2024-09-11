@@ -58,6 +58,8 @@ def main():
     audio_frames = []
     video_frames = []
     audio_recording_thread = None
+    video_recording_thread = None
+    timelapse_recording_thread = None
     kill = Event()
 
     try:
@@ -77,6 +79,7 @@ def main():
     if (os.path.exists(trigger_file)):
         os.remove(trigger_file)
 
+    trigger_post_buffer = post_buffer
     last = datetime.now()
     while (kill.is_set() is False):
         try:
@@ -87,16 +90,20 @@ def main():
             if (t is not None):
                 print("\ntrigger detected")
                 trigger_time = t
+                trigger_end_time = trigger_time + timedelta(seconds = trigger_post_buffer)
+                trigger_post_buffer = trigger_post_buffer + 1
 
             if (trigger_time is None):
+                trigger_end_time = None
+                trigger_post_buffer = post_buffer
                 while (len(audio_frames) > pre_buffer or len(audio_frames) > len(video_frames)):
                     del audio_frames[0]
                 while (len(video_frames) > pre_buffer or len(video_frames) > len(audio_frames)):
                     del video_frames[0]
 
-            if (trigger_time is not None and  trigger_time + timedelta(seconds=post_buffer) > datetime.now()):
-                print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s, trigger remaining:{int(((trigger_time + timedelta(seconds=post_buffer)) - datetime.now()).seconds)}s", end='')
-            elif (trigger_time is not None and trigger_time + timedelta(seconds=post_buffer) < datetime.now() and len(audio_frames) > 0 and len(video_frames) >= len(audio_frames)):
+            if (trigger_time is not None and trigger_end_time > datetime.now()):
+                print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s, trigger remaining:{int((trigger_end_time - datetime.now()).seconds)}s", end='')
+            elif (trigger_time is not None and trigger_end_time < datetime.now() and len(audio_frames) > 0 and len(video_frames) >= len(audio_frames)):
                 print("")
                 frame_count = len(audio_frames)
                 audio_buffer_file = audio_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'

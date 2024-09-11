@@ -34,7 +34,7 @@ def consolidated_filename(files, ext=None, seconds = True):
         basename = os.path.basename(file)
         file_info = scremeter.parse_filename(file)
         if (ext is None):
-            ext = file_info['extension']
+            ext = file_info['ext']
         if (date is None):
             date = f"{file_info['year']}-{file_info['month']}-{file_info['day']}-{file_info['hour']}"
             hour = file_info['hour']
@@ -277,10 +277,13 @@ def scan_files(path):
         to_concat[file_date_hour].append(file)
 
     for date_hour in to_concat.keys():
+        file_info = None
         print(f"{date_hour}:")
         if (len(to_concat[date_hour]) == 0):
             continue
         for file in to_concat[date_hour]:
+            if (file_info is None):
+                file_info = scremeter.parse_filename(file)
             print(file)
 
         file = consolidated_filename(to_concat[date_hour])
