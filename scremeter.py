@@ -245,6 +245,7 @@ def write_file(p, trigger_time, audio_frames, video_frames):
     file_time = trigger_time.strftime('%Y-%m-%d-%H_%M_%S')
     print("")
     print(f"write_file: writing {file_time} files")
+    audio_buffer_file = audio_base_filename + file_time + '.wav'
     wf = wave.open(audio_buffer_file, 'wb')
     wf.setnchannels(channels)
     wf.setsampwidth(p.get_sample_size(sample_format))
