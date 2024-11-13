@@ -176,7 +176,8 @@ def concat(concat_type, filename, files, archive = None):
             print(f"generating {filename}...")
             if (os.path.exists(filename)):
                 delete(filename)
-            text_settings = "drawtext=text='%{metadata\\:datetime}':fontsize=45:x=w-tw-20:y=h-th-20:fontcolor=white:box=1:boxcolor=black@.5"
+            #text_settings = "drawtext=text='%{metadata\\:datetime}':fontsize=45:x=w-tw-80:y=h-th-80:fontcolor=white:box=1:boxcolor=black@.3"
+            text_settings = "drawtext=text='%{metadata\\:datetime}':fontsize=32:x=w-tw-300:y=h-th-220:fontcolor=white:box=1:boxcolor=black@.3"
             command = ['ffmpeg', '-r','30', '-f','concat', '-safe','0','-i',frame_list_file, '-vf',text_settings, '-c:v', 'libx264', filename]
             done = subprocess.run(command)
             if (done.returncode == 0):

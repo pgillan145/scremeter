@@ -104,28 +104,14 @@ def main():
             if (trigger_time is not None and trigger_end_time > datetime.now()):
                 print(f"\rbuffer length: a:{len(audio_frames)}s/v:{len(video_frames)}s, trigger remaining:{int((trigger_end_time - datetime.now()).seconds)}s", end='')
             elif (trigger_time is not None and trigger_end_time < datetime.now() and len(audio_frames) > 0 and len(video_frames) >= len(audio_frames)):
-                print("")
-                frame_count = len(audio_frames)
-                audio_buffer_file = audio_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + '.wav'
-                print(f"writing wav file: {audio_buffer_file}")
-                wf = wave.open(audio_buffer_file, 'wb')
-                wf.setnchannels(channels)
-                wf.setsampwidth(p.get_sample_size(sample_format))
-                wf.setframerate(frequency)
-                for i in range(frame_count):
-                    wf.writeframes(b''.join(audio_frames[i]))
-                wf.close()
+                try:
+                    audio_trigger_frames = audio_frames.copy()
+                    video_trigger_frames = video_frames.copy()
+                    write_file_thread = Thread(target=write_file, name='write_file', args=[p, trigger_time, audio_trigger_frames, video_trigger_frames])
+                    write_file_thread.start()
+                except:
+                    sys.exit("error starting file write thread")
 
-                video_buffer_file = video_base_filename + trigger_time.strftime('%Y-%m-%d-%H_%M_%S') + f'.{video_ext}'
-                print(f"writing avi file: {video_buffer_file}...")
-                codec = cv2.VideoWriter_fourcc(*video_codec)
-                output = cv2.VideoWriter(f'{video_buffer_file}', codec, float(fps), (width, height))
-                for i in range(frame_count):
-                    frames = video_frames[i]
-                    for frame in expand_frames(frames, fps):
-                        output.write(frame)
-                output.release()
-                print("...done")
                 trigger_time = None
             else:
                 if (len(video_frames) > 0 and len(video_frames[0]) > 0 and len(audio_frames) > 0 and len(audio_frames[0]) > 0):
@@ -137,6 +123,7 @@ def main():
             break
     print("")
     kill.set()
+
 
 def record_audio(p, frames, kill):
     info = p.get_host_api_info_by_index(0)
@@ -252,5 +239,33 @@ def trigger():
         return datetime.now()
 
     return None
+
+def write_file(p, trigger_time, audio_frames, video_frames):
+    frame_count = len(audio_frames)
+    file_time = trigger_time.strftime('%Y-%m-%d-%H_%M_%S')
+    print("")
+    print(f"write_file: writing {file_time} files")
+    wf = wave.open(audio_buffer_file, 'wb')
+    wf.setnchannels(channels)
+    wf.setsampwidth(p.get_sample_size(sample_format))
+    wf.setframerate(frequency)
+    for i in range(frame_count):
+        wf.writeframes(b''.join(audio_frames[i]))
+    wf.close()
+
+    video_buffer_file = video_base_filename + file_time + f'.{video_ext}'
+    #print("")
+    #print(f"write_file: writing avi file: {video_buffer_file}...")
+    codec = cv2.VideoWriter_fourcc(*video_codec)
+    output = cv2.VideoWriter(f'{video_buffer_file}', codec, float(fps), (width, height))
+    for i in range(frame_count):
+        frames = video_frames[i]
+        for frame in expand_frames(frames, fps):
+            output.write(frame)
+    output.release()
+    print("")
+    print(f"write_file: done writing {file_time} files")
+
+    return
 
 main()
