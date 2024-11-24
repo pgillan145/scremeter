@@ -302,7 +302,7 @@ def scan_files(path):
         if (os.path.exists(test_video_file)):
             # TODO: cleanup items in the video-raw directory that didn't have a mate.
             print(f"combining {audio_file} and {test_video_file}")
-            concat('video', scremeter.video_dir() + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'mp4'), [audio_file, test_video_file] , archive=f"{scremeter.video_dir(raw = True, archive = True)}")
+            concat('video', scremeter.video_dir() + '/' + scremeter.unparse_file_info(audio_file_info, ext = 'mp4'), [audio_file, test_video_file] , archive=f"{scremeter.video_dir(raw = True, archive = True)}/{audio_file_info['date']}")
 
 def makeDateHour(date = None, file = None, inc_minute = False):
     if (file is not None):

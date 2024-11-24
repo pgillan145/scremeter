@@ -98,7 +98,7 @@ def parse_filename(file):
         file_info['minute'] = minute
         file_info['second'] = second
         file_info['ext'] = ext
-
+        file_info['date'] = f'{year}-{month}-{day}'
 
     if ('header' not in file_info):
         raise Exception(f"invalid filename: {basename}")
