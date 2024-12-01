@@ -251,7 +251,7 @@ def scan_files(path):
         file = consolidated_filename(to_concat[date_hour], 'mp4')
         archive_dir = re.sub('.mp4$', '', file)
         #concat('timelapse', f"{scremeter.timelapse_dir()}/{file_info['header']}_{date_hour}.mp4", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw=True, archive = True)}/{file_info['header']}-{date_hour}")
-        concat('timelapse', f"{scremeter.timelapse_dir()}/{file}", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw = True, archive = True)}/{archive_dir}")
+        concat('timelapse', f"{scremeter.timelapse_dir()}/{file}", to_concat[date_hour], archive=f"{scremeter.timelapse_dir(raw = True, archive = True)}/{file_info['date']}/{archive_dir}")
 
     # Audio
     files = minorimpact.readdir(f'{scremeter.audio_dir(processed = True)}')
