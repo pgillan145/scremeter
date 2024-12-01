@@ -1,0 +1,19 @@
+[default]
+
+archive_dir = /backups/scremeter
+scremeter_dir = /documents/scremeter
+tmp_dir = /tmp
+
+audio_device = C-Media USB
+beep = /home/beep.wav
+cache_file = /tmp/scremeter/cache
+flagged_dir = /tmp/scremeter/flagged
+post_buffer = 5
+pre_buffer = 5
+#processed_dir = /documents/scremeter/processed
+#audio_dir = /documents/scremeter
+#raw_dir = /documents/scremeter/raw
+title = scremeter_file
+trigger_file = /tmp/scremeter_trigger
+video_device = Brio 101
+#wav_dir = /documents/scremeter/wav
